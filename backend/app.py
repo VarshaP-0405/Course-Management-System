@@ -3,11 +3,14 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 
 import models
-from cache import init_redis
 
 
 def create_app():
-    app = Flask(__name__)
+    app = Flask(
+        __name__,
+        template_folder="../frontend",
+        static_folder="../frontend"
+    )
 
     # Database
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///hospital.db"
@@ -29,8 +32,7 @@ from flask_migrate import Migrate
 # JWT
 jwt = JWTManager(app)
 
-# Redis Cache
-init_redis(app)
+
 
 # CORS
 CORS(
@@ -53,7 +55,8 @@ CORS(
 # Import Routes AFTER app creation
 from routes import api
 
-api.init_app(app)
+app.register_blueprint(api)
+
 from models import db
 
 migrate = Migrate(app, db)

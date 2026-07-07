@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from pymongo import auth
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, User
+from models import db, User,Student, Course, Module, Enrollment
 
 
 api = Blueprint("api", __name__)
@@ -14,6 +14,23 @@ api = Blueprint("api", __name__)
 def home():
     return render_template("index.html")
 
+# Admin Dashboard
+@api.route("/admin/dashboard")
+def admin_dashboard():
+    return render_template("admin-dashboard.html")
+
+
+# Faculty Dashboard
+@api.route("/faculty/dashboard")
+def faculty_dashboard():
+    return render_template("faculty-dashboard.html")
+
+
+# Student Dashboard
+@api.route("/student/dashboard")
+def student_dashboard():
+    return render_template("student-dashboard.html")
+
 
 # ===============================
 # Register
@@ -23,63 +40,113 @@ def register():
 
     if request.method == "POST":
 
-        first_name = request.form.get("first_name")
-        last_name = request.form.get("last_name")
-        email = request.form.get("email")
-        password = request.form.get("password")
-        confirm_password = request.form.get("confirm_password")
-        role = 3
+        try:
 
-        age = request.form.get("age")
-        gender = request.form.get("gender")
-        phone = request.form.get("phone")
-        address = request.form.get("address")
-        dob = request.form.get("dob")
-        department = request.form.get("department")
+            first_name = request.form.get("first_name")
+            last_name = request.form.get("last_name")
+            email = request.form.get("email")
+            password = request.form.get("password")
+            confirm_password = request.form.get("confirm_password")
 
-        # Check if email already exists
-        existing = User.query.filter_by(email=email).first()
+            age = request.form.get("age")
+            gender = request.form.get("gender")
+            phone = request.form.get("phone")
+            address = request.form.get("address")
+            dob = request.form.get("dob")
+            department = request.form.get("department")
 
-        if existing:
-            flash("Email already registered!", "danger")
-            return redirect(url_for("api.register"))
 
-        # Check passwords
-        if password != confirm_password:
-            flash("Passwords do not match!", "danger")
-            return redirect(url_for("api.register"))
+            # Check existing user
 
-        # Create User
-        hashed_password = generate_password_hash(password)
+            existing = User.query.filter_by(email=email).first()
 
-        new_user = User(
-            email=email,
-            password=hashed_password,
-            role=int(role)
-        )
+            if existing:
+                flash(
+                    "Email already registered!",
+                    "danger"
+                )
+                return redirect(url_for("api.register"))
 
-        db.session.add(new_user)
-        db.session.commit()
 
-        # Create Student
-        new_student = Student(
-            user_id=new_user.id,
-            first_name=first_name,
-            last_name=last_name,
-            age=age,
-            gender=gender,
-            address=address,
-            phone=phone,
-            dob=dob,
-            department=department
-        )
 
-        db.session.add(new_student)
-        db.session.commit()
+            # Password check
 
-        flash("Registration Successful!", "success")
+            if password != confirm_password:
 
-        return redirect(url_for("api.login"))
+                flash(
+                    "Passwords do not match!",
+                    "danger"
+                )
+
+                return redirect(url_for("api.register"))
+
+
+
+            # Create User
+
+            new_user = User(
+
+                email=email,
+
+                password=generate_password_hash(password),
+
+                role=3
+
+            )
+
+
+            db.session.add(new_user)
+
+            db.session.commit()
+
+
+
+            # Create Student Profile
+
+            new_student = Student(
+
+                user_id=new_user.id,
+
+                first_name=first_name,
+
+                last_name=last_name,
+
+                age=age,
+
+                gender=gender,
+
+                address=address,
+
+                phone=phone,
+
+                dob=dob,
+
+                department=department
+
+            )
+
+
+            db.session.add(new_student)
+
+            db.session.commit()
+            
+            return redirect(
+                url_for("api.login")
+            )
+
+
+        except Exception as e:
+
+            db.session.rollback()
+
+            print("REGISTER ERROR:", e)
+
+            flash(
+                "Registration failed",
+                "danger"
+            )
+
+
 
     return render_template("register.html")
 
@@ -94,15 +161,36 @@ def login():
 
         email = request.form.get("email")
         password = request.form.get("password")
+        role = request.form.get("role")
 
-        user = User.query.filter_by(email=email).first()
+        print("EMAIL:", email)
+        print("ROLE:", role)
+
+        user = User.query.filter_by(
+            email=email
+        ).first()
+
+        print("USER:", user)
+
 
         if user and check_password_hash(user.password, password):
 
-            flash("Login Successful!", "success")
-            return redirect(url_for("api.home"))
+            print("LOGIN SUCCESS")
+            print("DATABASE ROLE:", user.role)
 
-        flash("Invalid Email or Password", "danger")
+
+            if user.role == 1:
+                return redirect(url_for("api.admin_dashboard"))
+
+            elif user.role == 2:
+                return redirect(url_for("api.faculty_dashboard"))
+
+            elif user.role == 3:
+                return redirect(url_for("api.student_dashboard"))
+
+
+        flash("Invalid Login", "danger")
+
 
     return render_template("login.html")
 

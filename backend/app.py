@@ -62,25 +62,41 @@ from models import db
 migrate = Migrate(app, db)
 # Database Initialization
 models.db.init_app(app)
-def create_admin():
-    """
-    Create default admin if not exists
-    """
+from werkzeug.security import generate_password_hash
 
-    admin = models.User.query.filter_by(role=1).first()
+
+def create_admin():
+
+    admin = models.User.query.filter_by(
+        email="courseadmin123@gmail.com"
+    ).first()
+
 
     if not admin:
+
         new_admin = models.User(
-            email="Admin@123",
-            password="hospiadmin123",
+
+            email="courseadmin123@gmail.com",
+
+            password=generate_password_hash(
+                "courseadmin123"
+            ),
+
             role=1
+
         )
 
+
         models.db.session.add(new_admin)
+
         models.db.session.commit()
 
+
         print("✅ Default Admin Created")
+
+
     else:
+
         print("ℹ️ Admin Already Exists")
 
 

@@ -1,4 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import synonym
 from datetime import datetime
 
 db = SQLAlchemy()
@@ -34,7 +35,10 @@ class Student(db.Model):
 class Course(db.Model):
     __tablename__ = "courses"
     Cid = db.Column(db.Integer, primary_key=True)
+    id = synonym('Cid')
     cname = db.Column(db.String(100), nullable=False)
+    course_name = synonym('cname')
+    course_code = db.Column(db.String(50))
     instructor = db.Column(db.String(100), nullable=False)
     duration = db.Column(db.String(50))
     description = db.Column(db.Text)
@@ -44,6 +48,8 @@ class Course(db.Model):
 class Module(db.Model):
     __tablename__ = "modules"
     Mid = db.Column(db.Integer, primary_key=True)
+    id = synonym('Mid')
+    module_id = synonym('Mid')
     course_id = db.Column(
         db.Integer,
         db.ForeignKey('courses.Cid'),

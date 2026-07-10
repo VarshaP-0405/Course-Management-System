@@ -210,7 +210,7 @@ def forgot_password():
         if user:
 
             flash("Reset your password below.", "info")
-            return redirect(url_for("api.reset_password"))
+            return redirect(url_for("api.reset_password", email=email))
 
         flash("Email not found.", "danger")
 
@@ -223,10 +223,16 @@ def forgot_password():
 @api.route("/reset-password", methods=["GET", "POST"])
 def reset_password():
 
+    email = request.args.get("email") or request.form.get("email")
+
     if request.method == "POST":
 
-        email = request.form.get("email")
         new_password = request.form.get("password")
+        confirm_password = request.form.get("confirm_password")
+
+        if new_password != confirm_password:
+            flash("Passwords do not match.", "danger")
+            return render_template("reset-password.html", email=email)
 
         user = User.query.filter_by(email=email).first()
 
@@ -242,7 +248,7 @@ def reset_password():
 
         flash("User not found.", "danger")
 
-    return render_template("reset-password.html")
+    return render_template("reset-password.html", email=email)
 
 
 # ===============================
@@ -254,3 +260,87 @@ def logout():
     flash("Logged Out Successfully", "success")
 
     return redirect(url_for("api.login"))
+
+@api.route('/course/<int:course_id>')
+def course_details(course_id):
+    course = Course.query.get_or_404(course_id)
+    return render_template("course-details.html", course=course)
+
+
+@api.route('/course/<int:course_id>/content')
+def course_content(course_id):
+    course = Course.query.get_or_404(course_id)
+    modules = Module.query.filter_by(course_id=course_id).all()
+    progress = 0
+    return render_template("course-content.html", course=course, modules=modules, progress=progress)
+
+
+
+
+@api.route('/add-course', methods=['GET', 'POST'])
+def add_course():
+    if request.method == 'POST':
+        course_name = request.form.get('course_name')
+        course_code = request.form.get('course_code')
+        instructor = request.form.get('instructor')
+        duration = request.form.get('duration')
+        credits = request.form.get('credits')
+        description = request.form.get('description')
+
+        new_course = Course(
+            cname=course_name,
+            course_code=course_code,
+            instructor=instructor,
+            duration=duration,
+            credits=credits,
+            description=description
+        )
+        db.session.add(new_course)
+        db.session.commit()
+        flash('Course added successfully!', 'success')
+        return redirect(url_for('api.admin_dashboard'))
+
+    return render_template('add-course.html')
+
+@api.route('/edit-course/<int:course_id>', methods=['GET', 'POST'])
+def edit_course(course_id):
+    course = Course.query.get_or_404(course_id)
+
+    if request.method == "POST":
+        course.course_name = request.form["course_name"]
+        course.course_code = request.form["course_code"]
+        course.instructor = request.form["instructor"]
+        course.duration = request.form["duration"]
+        course.credits = request.form["credits"]
+        course.description = request.form["description"]
+
+        db.session.commit()
+        flash("Course Updated Successfully!", "success")
+        return redirect(url_for("api.admin_dashboard"))
+
+    return render_template("edit-course.html", course=course)
+@api.route('/browse-courses')
+def browse_courses():
+    courses = Course.query.all()
+    return render_template('browse-courses.html', courses=courses)
+
+
+@api.route('/enroll/<int:course_id>')
+def enroll_course(course_id):
+    course = Course.query.get_or_404(course_id)
+
+    # Save enrollment to Enrollment table
+
+    return render_template(
+        'enrollment-success.html',
+        course=course
+    )
+
+
+@api.route('/my-courses')
+def my_courses():
+    courses = Course.query.all()
+    return render_template(
+        'my-courses.html',
+        courses=courses
+    )

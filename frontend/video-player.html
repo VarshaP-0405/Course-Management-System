@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Video Lesson</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<link rel="stylesheet"
+href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+<style>
+
+body{
+
+    margin:0;
+    min-height:100vh;
+
+    font-family:Segoe UI,Arial,sans-serif;
+
+    background:linear-gradient(135deg,#0b1f3a,#174b7a);
+
+    color:white;
+
+    display:flex;
+    flex-direction:column;
+
+}
+
+/* Navbar */
+
+.navbar{
+
+    background:rgba(0,0,0,.2);
+
+    backdrop-filter:blur(10px);
+
+}
+
+/* Main Container */
+
+.video-box{
+
+    width:90%;
+    max-width:1100px;
+
+    margin:auto;
+    margin-top:50px;
+    margin-bottom:40px;
+
+    background:rgba(255,255,255,.08);
+
+    backdrop-filter:blur(12px);
+
+    border:1px solid rgba(255,255,255,.15);
+
+    border-radius:20px;
+
+    padding:35px;
+
+    box-shadow:0 10px 30px rgba(0,0,0,.35);
+
+}
+
+.title{
+
+    color:#6ee7ff;
+
+    font-weight:bold;
+
+}
+
+/* Video */
+
+.video-container{
+
+    position:relative;
+
+    overflow:hidden;
+
+    border-radius:15px;
+
+    margin-top:25px;
+
+}
+
+.video-container iframe,
+.video-container video{
+
+    width:100%;
+
+    height:550px;
+
+    border:none;
+
+    border-radius:15px;
+
+}
+
+/* Info */
+
+.info-card{
+
+    margin-top:25px;
+
+    background:rgba(255,255,255,.08);
+
+    border-radius:15px;
+
+    padding:20px;
+
+    border:1px solid rgba(255,255,255,.15);
+
+}
+
+.progress{
+
+    height:22px;
+
+    border-radius:20px;
+
+}
+
+/* Buttons */
+
+.btn-main{
+
+    background:#0dcaf0;
+
+    color:black;
+
+    font-weight:bold;
+
+}
+
+.btn-main:hover{
+
+    background:#31d2f2;
+
+}
+
+footer{
+
+    background:#07111f;
+
+    text-align:center;
+
+    padding:18px;
+
+    margin-top:auto;
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<!-- NAVBAR -->
+
+<nav class="navbar navbar-expand-lg navbar-dark">
+
+<div class="container">
+
+<a class="navbar-brand fw-bold">
+
+🎓 CMS+ Portal
+
+</a>
+
+<div class="ms-auto">
+
+<a href="{{ url_for('api.student_dashboard') }}"
+class="btn btn-outline-light">
+
+Dashboard
+
+</a>
+
+</div>
+
+</div>
+
+</nav>
+
+<!-- VIDEO CONTENT -->
+
+<div class="video-box">
+
+<h2 class="title">
+
+{{ module.title }}
+
+</h2>
+
+<p>
+
+{{ module.description }}
+
+</p>
+
+<!-- VIDEO PLAYER -->
+
+<div class="video-container">
+
+<!-- YouTube Video -->
+
+<iframe
+src="{{ module.video_url }}"
+allowfullscreen>
+</iframe>
+
+<!--
+For MP4 video instead use:
+
+<video controls>
+<source src="{{ module.video_url }}">
+</video>
+
+-->
+
+</div>
+
+<!-- VIDEO DETAILS -->
+
+<div class="info-card">
+
+<div class="row">
+
+<div class="col-md-4">
+
+<h6>Duration</h6>
+
+<p>{{ module.duration if module.duration else "30 Minutes" }}</p>
+
+</div>
+
+<div class="col-md-4">
+
+<h6>Instructor</h6>
+
+<p>{{ module.course.instructor }}</p>
+
+</div>
+
+<div class="col-md-4">
+
+<h6>Status</h6>
+
+<span class="badge bg-success">
+
+Watching
+
+</span>
+
+</div>
+
+</div>
+
+<hr>
+
+<h6>Your Progress</h6>
+
+<div class="progress">
+
+<div
+class="progress-bar progress-bar-striped progress-bar-animated bg-info"
+style="width: {{ progress }}%;">
+
+{{ progress }}%
+
+</div>
+
+</div>
+
+</div>
+
+<!-- ACTION BUTTONS -->
+
+<div class="row mt-4">
+
+<div class="col-md-4 mb-3">
+
+<a
+href="{{ url_for('api.materials', module_id=module.id) }}"
+class="btn btn-warning w-100">
+
+<i class="bi bi-file-earmark-text-fill"></i>
+
+Study Materials
+
+</a>
+
+</div>
+
+<div class="col-md-4 mb-3">
+
+<a
+href="{{ url_for('api.mark_completed', module_id=module.id) }}"
+class="btn btn-success w-100">
+
+<i class="bi bi-check-circle-fill"></i>
+
+Mark as Completed
+
+</a>
+
+</div>
+
+<div class="col-md-4 mb-3">
+
+<a
+href="{{ url_for('api.next_module', module_id=module.id) }}"
+class="btn btn-main w-100">
+
+<i class="bi bi-arrow-right-circle-fill"></i>
+
+Next Lesson
+
+</a>
+
+</div>
+
+</div>
+
+<!-- BACK -->
+
+<div class="text-center mt-3">
+
+<a
+href="{{ url_for('api.module', module_id=module.id) }}"
+class="btn btn-outline-light">
+
+<i class="bi bi-arrow-left-circle"></i>
+
+Back to Module
+
+</a>
+
+</div>
+
+</div>
+
+<footer>
+
+© 2026 Course Management System+
+
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+
+</html>

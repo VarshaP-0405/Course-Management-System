@@ -105,6 +105,22 @@ textarea::placeholder {
     color: #ddd;
 }
 
+.is-invalid {
+    border: 1px solid #ff7b7b !important;
+    box-shadow: 0 0 0 0.2rem rgba(255, 123, 123, 0.25) !important;
+}
+
+.invalid-feedback {
+    display: block;
+    color: #ffd4d4;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+.form-error {
+    font-size: 0.95rem;
+}
+
 .form-control:focus,
 .form-select:focus,
 input:focus,

@@ -20,6 +20,11 @@ def create_app():
     app.config["SECRET_KEY"] = "varsupersecretkeydha"
     app.config["JWT_SECRET_KEY"] = "this_is_a_super_secure_jwt_secret_key_2026_very_long"
 
+    models.db.init_app(app)
+
+    from routes import api
+    app.register_blueprint(api)
+
     return app
 
 
@@ -52,16 +57,10 @@ CORS(
     supports_credentials=True,
 )
 
-# Import Routes AFTER app creation
-from routes import api
-
-app.register_blueprint(api)
-
 from models import db
 
 migrate = Migrate(app, db)
 # Database Initialization
-models.db.init_app(app)
 from werkzeug.security import generate_password_hash
 
 

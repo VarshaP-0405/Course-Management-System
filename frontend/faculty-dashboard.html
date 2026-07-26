@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Faculty Dashboard | CMS+</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='common.css') }}">
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark">
+  <div class="container">
+    <a class="navbar-brand fw-bold" href="{{ url_for('api.faculty_dashboard') }}">🎓 Faculty Panel</a>
+    <div class="ms-auto">
+      <a href="{{ url_for('api.home') }}" class="btn btn-outline-light btn-sm">Home</a>
+      <a href="{{ url_for('api.logout') }}" class="btn btn-light btn-sm">Logout</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container py-5">
+  <h1 class="section-title">Faculty Dashboard</h1>
+  <div class="row g-4">
+    <div class="col-md-4">
+      <div class="glass p-4 text-center">
+        <h4>📚 Manage Courses</h4>
+        <p>Create, review, and update course content.</p>
+        <a href="{{ url_for('api.add_course') }}" class="btn btn-custom w-100">Open</a>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="glass p-4 text-center">
+        <h4>🧑‍🏫 Student Support</h4>
+        <p>Guide learners and monitor course progress.</p>
+        <a href="{{ url_for('api.student_dashboard') }}" class="btn btn-custom w-100">View Student View</a>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="glass p-4 text-center">
+        <h4>📈 Reports</h4>
+        <p>Stay on top of completion and engagement.</p>
+        <a href="{{ url_for('api.progress') }}" class="btn btn-custom w-100">Open Reports</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer><p>© 2026 Course Management System+</p></footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

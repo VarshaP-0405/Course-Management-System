@@ -126,7 +126,7 @@ Create your Course Management System account
 
 </div>
 
-<form method="POST" action="{{ url_for('api.register') }}">
+<form method="POST" action="{{ url_for('api.register') }}" data-validate-form="register" novalidate>
 
 <div class="row">
 
@@ -333,5 +333,6 @@ Sign In
 
 </div>
 
+<script src="form-validation.js"></script>
 </body>
 </html>

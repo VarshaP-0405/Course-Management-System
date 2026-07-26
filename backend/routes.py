@@ -1,7 +1,8 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from pymongo import auth
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, User,Student, Course, Module, Enrollment
+from models import db, User, Student, Course, Module, Enrollment
+import datetime
 
 
 api = Blueprint("api", __name__)
@@ -263,14 +264,21 @@ def logout():
 
 @api.route('/course/<int:course_id>')
 def course_details(course_id):
-    course = Course.query.get_or_404(course_id)
+    try:
+        course = Course.query.get_or_404(course_id)
+    except Exception:
+        return redirect(url_for('api.browse_courses'))
     return render_template("course-details.html", course=course)
 
 
 @api.route('/course/<int:course_id>/content')
 def course_content(course_id):
-    course = Course.query.get_or_404(course_id)
-    modules = Module.query.filter_by(course_id=course_id).all()
+    try:
+        course = Course.query.get_or_404(course_id)
+        modules = Module.query.filter_by(course_id=course_id).all()
+    except Exception:
+        course = None
+        modules = []
     progress = 0
     return render_template("course-content.html", course=course, modules=modules, progress=progress)
 
@@ -319,17 +327,29 @@ def edit_course(course_id):
         return redirect(url_for("api.admin_dashboard"))
 
     return render_template("edit-course.html", course=course)
+@api.route('/courses')
+def courses():
+    return render_template('courses.html')
+
+
 @api.route('/browse-courses')
 def browse_courses():
-    courses = Course.query.all()
+    try:
+        courses = Course.query.all()
+    except Exception:
+        courses = []
     return render_template('browse-courses.html', courses=courses)
 
 
 @api.route('/enroll/<int:course_id>')
 def enroll_course(course_id):
-    course = Course.query.get_or_404(course_id)
+    try:
+        course = Course.query.get_or_404(course_id)
+    except Exception:
+        course = None
 
-    # Save enrollment to Enrollment table
+    if course is None:
+        return redirect(url_for('api.browse_courses'))
 
     return render_template(
         'enrollment-success.html',
@@ -339,8 +359,92 @@ def enroll_course(course_id):
 
 @api.route('/my-courses')
 def my_courses():
-    courses = Course.query.all()
+    try:
+        courses = Course.query.all()
+    except Exception:
+        courses = []
     return render_template(
         'my-courses.html',
         courses=courses
     )
+
+
+@api.route('/notifications')
+def notifications():
+    items = [
+        {'title': 'New module released', 'message': 'A new lesson is now available for your active course.', 'time': '10 mins ago', 'type': 'course', 'is_read': False},
+        {'title': 'Assignment reminder', 'message': 'Please review the latest assignment instructions.', 'time': '1 hr ago', 'type': 'assignment', 'is_read': False},
+        {'title': 'Certificate ready', 'message': 'Your completion certificate is ready to view.', 'time': 'Yesterday', 'type': 'certificate', 'is_read': True},
+    ]
+    return render_template('notifications.html', notifications=items)
+
+
+@api.route('/progress')
+def progress():
+    courses = [
+        {'course_name': 'Python Basics', 'completed_modules': 3, 'total_modules': 5, 'progress': 60},
+        {'course_name': 'Web Development', 'completed_modules': 4, 'total_modules': 4, 'progress': 100},
+    ]
+    overall_progress = 80
+    return render_template(
+        'progress.html',
+        courses=courses,
+        total_courses=len(courses),
+        completed_courses=sum(1 for c in courses if c['progress'] >= 100),
+        ongoing_courses=sum(1 for c in courses if c['progress'] < 100),
+        certificates=1,
+        overall_progress=overall_progress,
+    )
+
+
+@api.route('/certificate')
+def certificate():
+    return render_template(
+        'certificate.html',
+        student_name='Alex Morgan',
+        course_name='Python Basics',
+        instructor='Dr. Nisha Rao',
+        completion_date='July 26, 2026',
+        certificate_id='CMS-2026-001'
+    )
+
+
+@api.route('/materials/<int:module_id>')
+def materials(module_id):
+    module = {'id': module_id, 'title': 'Module Overview', 'description': 'Helpful references and downloadable resources.'}
+    materials_list = [
+        {'title': 'Lecture Notes', 'description': 'PDF guide for the module.', 'file_type': 'pdf', 'file_name': 'notes.pdf'},
+        {'title': 'Practice Worksheet', 'description': 'Exercises to reinforce the topic.', 'file_type': 'docx', 'file_name': 'worksheet.docx'},
+    ]
+    return render_template('materials.html', module=module, materials=materials_list)
+
+
+@api.route('/module/<int:module_id>')
+def module(module_id):
+    course = {'course_name': 'Python Basics'}
+    module = {'id': module_id, 'title': 'Getting Started', 'description': 'A beginner-friendly introduction to the course.', 'course': course, 'duration': '30 Minutes', 'course_id': 1}
+    return render_template('module.html', module=module)
+
+
+@api.route('/video-player/<int:module_id>')
+def video_player(module_id):
+    course = {'instructor': 'Dr. Nisha Rao'}
+    module = {'id': module_id, 'title': 'Intro Lecture', 'description': 'A short introduction to the module.', 'video_url': 'https://www.youtube.com/embed/dQw4w9WgXcQ', 'duration': '15 Minutes', 'course': course}
+    return render_template('video-player.html', module=module, progress=75)
+
+
+@api.route('/mark-all-read')
+def mark_all_read():
+    flash('All notifications marked as read.', 'success')
+    return redirect(url_for('api.notifications'))
+
+
+@api.route('/mark-completed/<int:module_id>')
+def mark_completed(module_id):
+    flash(f'Module {module_id} marked as completed.', 'success')
+    return redirect(url_for('api.module', module_id=module_id))
+
+
+@api.route('/next-module/<int:module_id>')
+def next_module(module_id):
+    return redirect(url_for('api.module', module_id=module_id + 1))

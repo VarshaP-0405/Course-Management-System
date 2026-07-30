@@ -3,9 +3,30 @@ from pymongo import auth
 from werkzeug.security import generate_password_hash, check_password_hash
 from models import db, User, Student, Course, Module, Enrollment
 import datetime
+import json
+import os
 
 
 api = Blueprint("api", __name__)
+
+
+def get_course_data_path():
+    return os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "course-data.json")
+
+
+def read_courses():
+    path = get_course_data_path()
+    if not os.path.exists(path):
+        return []
+    with open(path, "r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def write_courses(courses):
+    path = get_course_data_path()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(courses, handle, indent=2)
 
 
 # ===============================
@@ -264,21 +285,20 @@ def logout():
 
 @api.route('/course/<int:course_id>')
 def course_details(course_id):
-    try:
-        course = Course.query.get_or_404(course_id)
-    except Exception:
+    courses = read_courses()
+
+    course = next((item for item in courses if item.get('id') == course_id), None)
+    if course is None:
         return redirect(url_for('api.browse_courses'))
     return render_template("course-details.html", course=course)
 
 
 @api.route('/course/<int:course_id>/content')
 def course_content(course_id):
-    try:
-        course = Course.query.get_or_404(course_id)
-        modules = Module.query.filter_by(course_id=course_id).all()
-    except Exception:
-        course = None
-        modules = []
+    courses = read_courses()
+
+    course = next((item for item in courses if item.get('id') == course_id), None)
+    modules = []
     progress = 0
     return render_template("course-content.html", course=course, modules=modules, progress=progress)
 
@@ -295,16 +315,20 @@ def add_course():
         credits = request.form.get('credits')
         description = request.form.get('description')
 
-        new_course = Course(
-            cname=course_name,
-            course_code=course_code,
-            instructor=instructor,
-            duration=duration,
-            credits=credits,
-            description=description
-        )
-        db.session.add(new_course)
-        db.session.commit()
+        courses = read_courses()
+
+        courses.append({
+            'id': len(courses) + 1,
+            'course_name': course_name,
+            'course_code': course_code,
+            'instructor': instructor,
+            'duration': duration,
+            'credits': credits,
+            'description': description
+        })
+
+        write_courses(courses)
+
         flash('Course added successfully!', 'success')
         return redirect(url_for('api.admin_dashboard'))
 
@@ -312,17 +336,24 @@ def add_course():
 
 @api.route('/edit-course/<int:course_id>', methods=['GET', 'POST'])
 def edit_course(course_id):
-    course = Course.query.get_or_404(course_id)
+    courses = read_courses()
+
+    course = next((item for item in courses if item.get('id') == course_id), None)
+
+    if course is None:
+        flash('Course not found.', 'danger')
+        return redirect(url_for('api.admin_dashboard'))
 
     if request.method == "POST":
-        course.course_name = request.form["course_name"]
-        course.course_code = request.form["course_code"]
-        course.instructor = request.form["instructor"]
-        course.duration = request.form["duration"]
-        course.credits = request.form["credits"]
-        course.description = request.form["description"]
+        course['course_name'] = request.form.get('course_name', course['course_name'])
+        course['course_code'] = request.form.get('course_code', course['course_code'])
+        course['instructor'] = request.form.get('instructor', course['instructor'])
+        course['duration'] = request.form.get('duration', course['duration'])
+        course['credits'] = request.form.get('credits', course['credits'])
+        course['description'] = request.form.get('description', course['description'])
 
-        db.session.commit()
+        write_courses(courses)
+
         flash("Course Updated Successfully!", "success")
         return redirect(url_for("api.admin_dashboard"))
 
@@ -332,12 +363,34 @@ def courses():
     return render_template('courses.html')
 
 
+@api.route('/about')
+def about():
+    return render_template('about.html')
+
+
+@api.route('/contact')
+def contact():
+    return render_template('contact.html')
+
+
+@api.route('/profile')
+def profile():
+    return render_template('profile.html')
+
+
+@api.route('/students')
+def students():
+    return render_template('students.html')
+
+
+@api.route('/reports')
+def reports():
+    return render_template('reports.html')
+
+
 @api.route('/browse-courses')
 def browse_courses():
-    try:
-        courses = Course.query.all()
-    except Exception:
-        courses = []
+    courses = read_courses()
     return render_template('browse-courses.html', courses=courses)
 
 
@@ -359,10 +412,7 @@ def enroll_course(course_id):
 
 @api.route('/my-courses')
 def my_courses():
-    try:
-        courses = Course.query.all()
-    except Exception:
-        courses = []
+    courses = read_courses()
     return render_template(
         'my-courses.html',
         courses=courses

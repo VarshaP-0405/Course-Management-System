@@ -1,0 +1,29 @@
+[
+  {
+    "id": 1,
+    "course_name": "Python Basics",
+    "course_code": "PY101",
+    "instructor": "Dr. Nisha Rao",
+    "duration": "6 Weeks",
+    "credits": 3,
+    "description": "A beginner-friendly introduction to Python programming."
+  },
+  {
+    "id": 2,
+    "course_name": "Web Development",
+    "course_code": "WD201",
+    "instructor": "Prof. James Carter",
+    "duration": "8 Weeks",
+    "credits": 4,
+    "description": "Build modern web applications using HTML, CSS, and JavaScript."
+  },
+  {
+    "id": 3,
+    "course_name": "Agentic AI",
+    "course_code": "AI101",
+    "instructor": "Thangam",
+    "duration": "3 months",
+    "credits": "3",
+    "description": "This course give you full details about agentic ai with hands on experience"
+  }
+]

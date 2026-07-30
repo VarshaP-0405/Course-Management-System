@@ -1,4 +1,51 @@
 (function () {
+  const STORAGE_KEYS = {
+    session: 'cms_session',
+    users: 'cms_users',
+    enrollments: 'cms_enrollments',
+    resetEmail: 'cms_reset_email'
+  };
+
+  const getStoredUsers = () => {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEYS.users) || '[]');
+    } catch (error) {
+      return [];
+    }
+  };
+
+  const saveStoredUsers = (users) => {
+    localStorage.setItem(STORAGE_KEYS.users, JSON.stringify(users));
+  };
+
+  const getStoredSession = () => {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEYS.session) || 'null');
+    } catch (error) {
+      return null;
+    }
+  };
+
+  const saveStoredSession = (user) => {
+    localStorage.setItem(STORAGE_KEYS.session, JSON.stringify(user));
+  };
+
+  const clearStoredSession = () => {
+    localStorage.removeItem(STORAGE_KEYS.session);
+  };
+
+  const getStoredEnrollments = () => {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEYS.enrollments) || '[]');
+    } catch (error) {
+      return [];
+    }
+  };
+
+  const saveStoredEnrollments = (enrollments) => {
+    localStorage.setItem(STORAGE_KEYS.enrollments, JSON.stringify(enrollments));
+  };
+
   const showFormError = (form, message) => {
     let errorBox = form.querySelector('.form-error');
     if (!errorBox) {
@@ -15,6 +62,26 @@
     if (errorBox) {
       errorBox.textContent = '';
       errorBox.classList.add('d-none');
+    }
+  };
+
+  const showFormStatus = (form, message, type = 'success') => {
+    let statusBox = form.querySelector('.form-status');
+    if (!statusBox) {
+      statusBox = document.createElement('div');
+      statusBox.className = 'form-status alert mt-3';
+      form.appendChild(statusBox);
+    }
+    statusBox.className = `form-status alert alert-${type} mt-3`;
+    statusBox.textContent = message;
+    statusBox.classList.remove('d-none');
+  };
+
+  const clearFormStatus = (form) => {
+    const statusBox = form.querySelector('.form-status');
+    if (statusBox) {
+      statusBox.textContent = '';
+      statusBox.classList.add('d-none');
     }
   };
 
@@ -37,6 +104,11 @@
     }
   };
 
+  const getPageName = () => {
+    const pathName = window.location.pathname.split('/').pop() || 'index.html';
+    return pathName.replace(/\.html$/, '');
+  };
+
   const getRedirectTarget = (form, type) => {
     if (form.dataset.redirectTo) {
       return form.dataset.redirectTo;
@@ -45,12 +117,113 @@
     if (type === 'login') {
       const roleField = form.querySelector('select[name="role"]');
       const selectedRole = roleField ? roleField.value : '';
-      if (selectedRole === '1') return '/admin/dashboard';
-      if (selectedRole === '2') return '/faculty/dashboard';
-      return '/student/dashboard';
+      if (selectedRole === '1') return 'admin-dashboard';
+      if (selectedRole === '2') return 'faculty-dashboard';
+      return 'student-dashboard';
     }
 
     return null;
+  };
+
+  const resolveRoute = (page) => {
+    const routeMap = {
+      'home': '/',
+      'index': '/',
+      'login': '/login',
+      'register': '/register',
+      'forgot-password': '/forgot-password',
+      'reset-password': '/reset-password',
+      'student-dashboard': '/student/dashboard',
+      'admin-dashboard': '/admin/dashboard',
+      'faculty-dashboard': '/faculty/dashboard',
+      'courses': '/courses',
+      'browse-courses': '/browse-courses',
+      'my-courses': '/my-courses',
+      'notifications': '/notifications',
+      'progress': '/progress',
+      'certificate': '/certificate',
+      'add-course': '/add-course',
+      'edit-course': '/edit-course',
+      'enrollment-success': '/enroll'
+    };
+
+    const target = routeMap[page] || page;
+
+    if (window.location.protocol === 'file:') {
+      if (target === '/') return 'index.html';
+      if (target.startsWith('/')) {
+        return `${target.replace(/^\//, '').replace(/\//g, '-')}.html`;
+      }
+      return `${target}.html`;
+    }
+
+    return target;
+  };
+
+  const navigateTo = (page) => {
+    window.location.assign(resolveRoute(page));
+  };
+
+  const initializeAuthState = () => {
+    const session = getStoredSession();
+    const pageName = getPageName();
+    const isProtectedDashboard = ['student-dashboard', 'faculty-dashboard', 'admin-dashboard'].includes(pageName);
+
+    document.querySelectorAll('a[href*="/logout"], a[data-auth-action="logout"]').forEach((link) => {
+      link.addEventListener('click', (event) => {
+        event.preventDefault();
+        clearStoredSession();
+        navigateTo('login');
+      });
+    });
+
+    if (isProtectedDashboard && !session) {
+      navigateTo('login');
+      return;
+    }
+
+    const greeting = document.querySelector('[data-user-greeting]');
+    if (greeting && session) {
+      const firstName = session.first_name || session.email.split('@')[0];
+      greeting.textContent = `Welcome, ${firstName} 👋`;
+    }
+
+    if (session) {
+      const rolePageMap = {
+        '1': 'admin-dashboard',
+        '2': 'faculty-dashboard',
+        '3': 'student-dashboard'
+      };
+      const target = rolePageMap[session.role] || 'student-dashboard';
+      document.querySelectorAll('[data-auth-label="login"]').forEach((link) => {
+        link.textContent = 'Dashboard';
+        link.setAttribute('href', resolveRoute(target));
+      });
+      document.querySelectorAll('[data-auth-label="logout"]').forEach((link) => {
+        link.textContent = 'Logout';
+      });
+    }
+  };
+
+  const initializeCourseState = () => {
+    const enrollments = getStoredEnrollments();
+    document.querySelectorAll('[data-enroll-button]').forEach((button) => {
+      const courseName = button.dataset.enrollButton || button.textContent.trim();
+      if (enrollments.includes(courseName)) {
+        button.textContent = 'Enrolled';
+        button.classList.remove('btn-primary');
+        button.classList.add('btn-success');
+      }
+
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        const nextEnrollments = Array.from(new Set([...enrollments, courseName]));
+        saveStoredEnrollments(nextEnrollments);
+        button.textContent = 'Enrolled';
+        button.classList.remove('btn-primary');
+        button.classList.add('btn-success');
+      });
+    });
   };
 
   const forms = document.querySelectorAll('form[data-validate-form]');
@@ -66,6 +239,7 @@
     form.addEventListener('submit', (event) => {
       event.preventDefault();
       clearFormError(form);
+      clearFormStatus(form);
       fields.forEach((field) => clearFieldError(field));
 
       const errors = [];
@@ -168,32 +342,93 @@
       }
 
       const redirectTarget = getRedirectTarget(form, type);
-      if (redirectTarget) {
-        const formData = new FormData(form);
-        const body = new URLSearchParams(formData).toString();
 
-        fetch(form.action, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
-          },
-          body,
-          redirect: 'follow'
-        })
-          .then((response) => {
-            if (response.url) {
-              window.location.assign(response.url);
-            } else {
-              form.submit();
-            }
-          })
-          .catch(() => {
-            form.submit();
-          });
+      if (type === 'login') {
+        const roleField = form.querySelector('select[name="role"]');
+        const emailField = form.querySelector('input[name="email"]');
+        const passwordField = form.querySelector('input[name="password"]');
+        const normalizedEmail = emailField.value.trim().toLowerCase();
+        const roleValue = roleField ? roleField.value : '3';
+        const users = getStoredUsers();
+        const existingUser = users.find((user) => user.email.toLowerCase() === normalizedEmail);
+
+        const profileUser = {
+          id: existingUser?.id || Date.now(),
+          email: normalizedEmail,
+          role: roleValue,
+          first_name: existingUser?.first_name || normalizedEmail.split('@')[0],
+          last_name: existingUser?.last_name || '',
+          department: existingUser?.department || '',
+          phone: existingUser?.phone || ''
+        };
+
+        const nextUsers = existingUser
+          ? users.map((user) => (user.email.toLowerCase() === normalizedEmail ? profileUser : user))
+          : [...users, profileUser];
+
+        saveStoredUsers(nextUsers);
+        saveStoredSession(profileUser);
+        showFormStatus(form, 'Signed in successfully. Redirecting...', 'success');
+        window.setTimeout(() => navigateTo(redirectTarget || 'student-dashboard'), 300);
+        return;
+      }
+
+      if (type === 'register') {
+        const firstName = form.querySelector('input[name="first_name"]')?.value.trim() || '';
+        const lastName = form.querySelector('input[name="last_name"]')?.value.trim() || '';
+        const emailField = form.querySelector('input[name="email"]');
+        const email = emailField?.value.trim().toLowerCase() || '';
+        const phone = form.querySelector('input[name="phone"]')?.value.trim() || '';
+        const department = form.querySelector('select[name="department"]')?.value || '';
+        const role = form.querySelector('select[name="role"]')?.value || '3';
+        const users = getStoredUsers();
+
+        if (users.some((user) => user.email.toLowerCase() === email)) {
+          showFormError(form, 'An account with this email already exists.');
+          return;
+        }
+
+        const newUser = {
+          id: Date.now(),
+          email,
+          role,
+          first_name: firstName,
+          last_name: lastName,
+          department,
+          phone
+        };
+
+        saveStoredUsers([...users, newUser]);
+        saveStoredSession(newUser);
+        showFormStatus(form, 'Account created successfully. Redirecting to your dashboard...', 'success');
+        window.setTimeout(() => navigateTo(role === '1' ? 'admin-dashboard' : role === '2' ? 'faculty-dashboard' : 'student-dashboard'), 400);
+        return;
+      }
+
+      if (type === 'forgot') {
+        const emailField = form.querySelector('input[name="email"]');
+        const email = emailField?.value.trim().toLowerCase() || '';
+        localStorage.setItem(STORAGE_KEYS.resetEmail, email);
+        showFormStatus(form, 'Password reset request saved locally. Redirecting...', 'success');
+        window.setTimeout(() => navigateTo('reset-password'), 350);
+        return;
+      }
+
+      if (type === 'reset') {
+        showFormStatus(form, 'Password reset completed locally. Redirecting to login...', 'success');
+        window.setTimeout(() => navigateTo('login'), 350);
+        return;
+      }
+
+      if (redirectTarget) {
+        navigateTo(redirectTarget);
         return;
       }
 
       form.submit();
     });
   });
+
+  initializeAuthState();
+  initializeCourseState();
 })();

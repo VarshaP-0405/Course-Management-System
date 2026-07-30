@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact CMS+ | Course Management System</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='common.css') }}">
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark">
+  <div class="container">
+    <a class="navbar-brand fw-bold" href="{{ url_for('api.home') }}">🎓 CMS+</a>
+    <div class="ms-auto d-flex gap-2">
+      <a href="{{ url_for('api.home') }}" class="btn btn-outline-light btn-sm">Home</a>
+      <a href="{{ url_for('api.courses') }}" class="btn btn-outline-light btn-sm">Courses</a>
+      <a href="{{ url_for('api.about') }}" class="btn btn-outline-light btn-sm">About</a>
+      <a href="{{ url_for('api.contact') }}" class="btn btn-outline-light btn-sm">Contact</a>
+      <a href="{{ url_for('api.profile') }}" class="btn btn-light btn-sm">Profile</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container py-5">
+  <div class="row g-4">
+    <div class="col-lg-7">
+      <div class="glass p-4">
+        <h1 class="mb-3">Contact the CMS+ team</h1>
+        <p>Need help enrolling, managing courses, or updating your profile? Reach out and we’ll help you get started.</p>
+        <ul>
+          <li>Email: support@cmsplus.edu</li>
+          <li>Phone: +1 (555) 010-2048</li>
+          <li>Office Hours: Mon-Fri, 8:00 AM - 6:00 PM</li>
+        </ul>
+      </div>
+    </div>
+    <div class="col-lg-5">
+      <div class="glass p-4">
+        <h4>Send a message</h4>
+        <form data-validate-form="contact" novalidate>
+          <div class="mb-3">
+            <label class="form-label">Name</label>
+            <input class="form-control" name="name" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Email</label>
+            <input class="form-control" type="email" name="email" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Message</label>
+            <textarea class="form-control" name="message" rows="4" required></textarea>
+          </div>
+          <button class="btn btn-register w-100">Send Message</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer><p>© 2026 Course Management System+</p></footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="form-validation.js"></script>
+<script src="page-app.js"></script>
+</body>
+</html>

@@ -166,7 +166,7 @@ Study Materials
 
 <div class="col-md-4 mb-2">
 
-<a href="#"
+<a href="{{ url_for('api.module', module_id=module.id - 1 if module.id > 1 else 1) }}"
 class="btn btn-outline-light w-100">
 
 <i class="bi bi-arrow-left"></i>
@@ -179,7 +179,7 @@ Previous
 
 <div class="col-md-4 mb-2">
 
-<a href="#"
+<a href="{{ url_for('api.mark_completed', module_id=module.id) }}"
 class="btn btn-success w-100">
 
 <i class="bi bi-check-circle-fill"></i>
@@ -192,7 +192,7 @@ Completed
 
 <div class="col-md-4 mb-2">
 
-<a href="#"
+<a href="{{ url_for('api.next_module', module_id=module.id) }}"
 class="btn btn-outline-light w-100">
 
 Next

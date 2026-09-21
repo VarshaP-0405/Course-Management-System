@@ -33,21 +33,21 @@
 
     <div class="col-md-4">
         <div class="glass">
-            <h2 class="text-info" data-enrolled-count>0</h2>
+            <h2 class="text-info" data-enrolled-count>{{ enrolled_count }}</h2>
             <p>Enrolled Courses</p>
         </div>
     </div>
 
     <div class="col-md-4">
         <div class="glass">
-            <h2 class="text-info">3</h2>
-            <p>Completed Courses</p>
+            <h2 class="text-info">{{ student_courses|length }}</h2>
+            <p>Active Courses</p>
         </div>
     </div>
 
     <div class="col-md-4">
         <div class="glass">
-            <h2 class="text-info">80%</h2>
+            <h2 class="text-info">{{ (student_courses|map(attribute='progress')|list|sum // (student_courses|length or 1)) }}%</h2>
             <p>Average Progress</p>
         </div>
     </div>
@@ -59,47 +59,20 @@
 
 <div class="row g-4">
 
-    <!-- Course 1 -->
+    {% for course in student_courses %}
     <div class="col-md-4">
         <div class="glass">
-            <h5>Full Stack Development</h5>
-            <p>Progress: 70%</p>
+            <h5>{{ course.course_name }}</h5>
+            <p>Progress: {{ course.progress }}%</p>
 
             <div class="progress mb-3">
-                <div class="progress-bar" style="width:70%"></div>
+                <div class="progress-bar" style="width:{{ course.progress }}%"></div>
             </div>
 
-            <a href="{{ url_for('api.browse_courses') }}" class="btn btn-custom w-100">Continue Learning</a>
+            <a href="{{ url_for('api.course_content', course_id=course.id) }}" class="btn btn-custom w-100">Continue Learning</a>
         </div>
     </div>
-
-    <!-- Course 2 -->
-    <div class="col-md-4">
-        <div class="glass">
-            <h5>Data Science</h5>
-            <p>Progress: 45%</p>
-
-            <div class="progress mb-3">
-                <div class="progress-bar" style="width:45%"></div>
-            </div>
-
-            <a href="{{ url_for('api.browse_courses') }}" class="btn btn-custom w-100">Continue Learning</a>
-        </div>
-    </div>
-
-    <!-- Course 3 -->
-    <div class="col-md-4">
-        <div class="glass">
-            <h5>Artificial Intelligence</h5>
-            <p>Progress: 90%</p>
-
-            <div class="progress mb-3">
-                <div class="progress-bar" style="width:90%"></div>
-            </div>
-
-            <a href="{{ url_for('api.browse_courses') }}" class="btn btn-custom w-100">Continue Learning</a>
-        </div>
-    </div>
+    {% endfor %}
 
 </div>
 
@@ -108,9 +81,7 @@
 
 <div class="glass">
 <ul>
-    <li>New assignment uploaded for Full Stack Development</li>
-    <li>AI quiz scheduled tomorrow</li>
-    <li>Data Science module 3 released</li>
+    <li>Your course updates will appear here.</li>
 </ul>
 </div>
 

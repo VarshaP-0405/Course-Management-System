@@ -113,14 +113,13 @@ style="width:{{ progress }}%">
 
 <hr>
 
-<button
-type="button"
-class="btn btn-open w-100 disabled"
-disabled>
+<a
+href="{{ url_for('api.module', module_id=module.id) }}"
+class="btn btn-open w-100">
 
 Open Module
 
-</button>
+</a>
 
 </div>
 

@@ -32,6 +32,19 @@ class Student(db.Model):
     department = db.Column(db.String(100))
     blacklisted = db.Column(db.String(2), default="N")
 
+
+class Faculty(db.Model):
+    __tablename__ = "faculty"
+    Fid = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, unique=True)
+    first_name = db.Column(db.String(30), nullable=False)
+    last_name = db.Column(db.String(30), nullable=False)
+    phone = db.Column(db.String(15))
+    department = db.Column(db.String(100), nullable=False)
+    qualification = db.Column(db.String(150), nullable=False)
+    specialization = db.Column(db.String(150), nullable=False)
+    employee_id = db.Column(db.String(50), unique=True, nullable=False)
+
 class Course(db.Model):
     __tablename__ = "courses"
     Cid = db.Column(db.Integer, primary_key=True)
@@ -44,6 +57,17 @@ class Course(db.Model):
     description = db.Column(db.Text)
     category = db.Column(db.String(50))
     credits = db.Column(db.Integer)
+
+
+class CourseFaculty(db.Model):
+    __tablename__ = "course_faculty"
+    id = db.Column(db.Integer, primary_key=True)
+    course_id = db.Column(db.Integer, db.ForeignKey('courses.Cid'), nullable=False)
+    faculty_id = db.Column(db.Integer, db.ForeignKey('faculty.Fid'), nullable=False)
+    assigned_at = db.Column(db.DateTime, default=datetime.utcnow)
+    __table_args__ = (
+        db.UniqueConstraint('course_id', 'faculty_id', name='uq_course_faculty'),
+    )
 
 class Module(db.Model):
     __tablename__ = "modules"
@@ -81,6 +105,9 @@ class Enrollment(db.Model):
     status = db.Column(
         db.String(20),
         default="Enrolled"
+    )
+    __table_args__ = (
+        db.UniqueConstraint('student_id', 'course_id', name='uq_student_course'),
     )
 
 class Progress(db.Model):

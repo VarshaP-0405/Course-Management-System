@@ -1,187 +1,182 @@
-Project Title
-Student Course Management and Learning Progress Tracking System
-1. Project Overview
-The Student Course Management and Learning Progress Tracking System is a full-stack web application designed to streamline academic course enrollment and learning management. The system allows students to create accounts, browse available courses, enroll in courses, access course materials, track their learning progress, and receive updates regarding their courses.
-The application also provides administrators with tools to manage students, courses, enrollments, and progress reports.
-This project is ideal for a Full Stack Web Development course because it covers frontend development, backend APIs, database management, authentication, deployment, and security.
+# Course Management System
 
-2. Problem Statement
-In many educational institutions, students struggle to:
-•	Find available courses 
-•	Register for courses efficiently 
-•	Monitor learning progress 
-•	Access course information in one place 
-•	Track completed and pending modules 
-Administrators face difficulties in managing course enrollments and monitoring student performance.
-The proposed system solves these problems through a centralized web-based platform.
+A full-stack student course management and learning progress tracking system built with Flask, SQLAlchemy, and static HTML/CSS/JavaScript frontend pages.
 
-3. Project Objectives
-1.	Provide secure student registration and login. 
-2.	Allow students to view and enroll in courses. 
-3.	Enable administrators to create and manage courses. 
-4.	Track student learning progress. 
-5.	Generate progress reports. 
-6.	Provide real-time notifications and updates. 
-7.	Maintain secure access to academic data. 
+## Project Overview
+This project helps universities and training institutions manage student accounts, course information, enrollments, progress tracking, and admin operations from a single platform.
 
-4. User Roles
-Student
 Students can:
-•	Register and login 
-•	View profile 
-•	Browse courses 
-•	Enroll in courses 
-•	Access course content 
-•	Track progress 
-•	View completion percentage 
-•	Receive notifications 
+- register and log in
+- browse available courses
+- view course details
+- enroll in courses
+- track progress and completed modules
+- view notifications and certificates
 
-Administrator
-Administrators can:
-•	Login securely 
-•	Add/Edit/Delete courses 
-•	Manage students 
-•	Monitor enrollments 
-•	Generate reports 
-•	Update course content 
-•	View analytics dashboard 
+Admins can:
+- manage courses
+- create faculty accounts with professional details
+- review student information
+- monitor dashboard data
+- add and update course records
 
-5. System Modules
-Module 1: User Authentication
-Features
-•	Student Registration 
-•	Student Login 
-•	Password Encryption 
-•	Forgot Password 
-•	JWT Authentication 
-Database Fields
-Field	Type
-Student ID	Integer
-Name	String
-Email	String
-Password	Encrypted String
-Department	String
+## Problem Statement
+Educational systems often rely on disconnected tools for registration, content access, and progress tracking. This leads to poor visibility, duplicate work, and slower administrative processes. This project centralizes those tasks into a simple web application.
 
-Module 2: Course Management
-Features
-•	Add Course 
-•	Update Course 
-•	Delete Course 
-•	View Course Details 
-Course Information
-Field	Description
-Course ID	Unique ID
-Course Name	Course Title
-Instructor	Faculty Name
-Duration	Number of Weeks
-Description	Course Information
-Category	Programming, AI, Web, etc.
+## Features
+- User registration and login
+- Role-based dashboard access
+- Course listing and course detail pages
+- Add, edit, and view courses
+- Student profile and registration forms
+- Learning progress tracking
+- Notifications and certificate pages
+- Responsive HTML/CSS frontend
+- Flask backend with SQLAlchemy models
+- Password hashing and secure admin setup
 
-Module 3: Course Enrollment
-Features
-•	Browse Courses 
-•	Search Courses 
-•	Enroll in Course 
-•	View Enrolled Courses 
-Workflow
-Student Login → Browse Courses → Select Course → Enroll → Confirmation
+## Tech Stack
+- Frontend: HTML5, CSS3, JavaScript
+- Backend: Python, Flask
+- Database: SQLite (via Flask-SQLAlchemy)
+- Authentication: Flask-JWT-Extended and password hashing
+- Security: bcrypt / Werkzeug password hashing
+- Version control: Git and GitHub
 
-Module 4: Learning Management
-Features
-•	View Modules 
-•	Access Learning Materials 
-•	Mark Module as Completed 
-•	Continue Learning 
-Example
-Course: Full Stack Development
-Modules:
-•	HTML 
-•	CSS 
-•	JavaScript 
-•	React 
-•	Node.js 
-•	MongoDB 
-Students complete modules one by one.
+## Project Structure
 
-Module 5: Progress Tracking
-Features
-•	Completion Percentage 
-•	Course Progress Bar 
-•	Completed Modules 
-•	Pending Modules 
-Example
-Course	Progress
-Python	80%
-React	60%
-DBMS	100%
+```text
+Course-Management-System/
+├── backend/
+│   ├── app.py
+│   ├── models.py
+│   ├── routes.py
+│   ├── requirements.txt
+│   └── __init__.py
+├── frontend/
+│   ├── index.html
+│   ├── login.html
+│   ├── register.html
+│   ├── admin-dashboard.html
+│   ├── student-dashboard.html
+│   ├── faculty-dashboard.html
+│   ├── browse-courses.html
+│   ├── course-details.html
+│   ├── edit-course.html
+│   ├── add-course.html
+│   ├── common.css
+│   ├── responsive.css
+│   ├── form-validation.js
+│   ├── page-app.js
+│   └── course-data.json
+├── tests/
+│   └── test_routes.py
+├── requirements.txt
+├── README.md
+└── coursevenv/
+```
 
-Module 6: Dashboard
-Student Dashboard
-Displays:
-•	Total Courses Enrolled 
-•	Courses Completed 
-•	Ongoing Courses 
-•	Progress Statistics 
-Admin Dashboard
-Displays:
-•	Total Students 
-•	Total Courses 
-•	Active Enrollments 
-•	Completion Reports 
+## Prerequisites
+- Python 3.10+
+- pip
+- Git
 
-Module 7: Notifications
-Features
-•	New Course Alerts 
-•	Enrollment Confirmation 
-•	Assignment Reminders 
-•	Completion Certificates 
-Implementation using:
-•	WebSockets 
-•	Socket.IO 
+## Setup Instructions
+From the project root, run:
 
-6. Database Design
-Students Table
-Field
-student_id
-name
-email
-password
-department
+```bash
+cd /workspaces/Course-Management-System
+python3 -m pip install -r backend/requirements.txt
+```
 
-Courses Table
-Field
-course_id
-course_name
-instructor
-duration
-description
+If you want to use a virtual environment:
 
-Enrollment Table
-Field
-enrollment_id
-student_id
-course_id
-enrollment_date
+```bash
+cd /workspaces/Course-Management-System
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r backend/requirements.txt
+```
 
-Progress Table
-Field
-progress_id
-student_id
-course_id
-completed_modules
-progress_percentage
+## Run the Application
+Start the Flask server from the project root:
 
+```bash
+cd /workspaces/Course-Management-System
+. .venv/bin/activate
+python backend/app.py
+```
 
+Then open your browser at:
 
+```text
+http://localhost:5001/
+```
 
+If port 5001 is already in use, run the app on another port:
 
-Layer	Technology
-Frontend	HTML5, CSS3, Bootstrap, JavaScript, React.js
-Backend	Node.js, Express.js
-Database	MongoDB
-Authentication	JWT, bcrypt
-Real-time Communication	Socket.IO
-API Testing	Postman
-Version Control	Git, GitHub
-Deployment	Render / Vercel / Railway
+```bash
+PORT=5002 python backend/app.py
+```
+
+Then open the matching URL, such as:
+
+```text
+http://localhost:5002/
+```
+
+The application will serve the frontend pages through Flask templates. Common pages include:
+- Home: http://localhost:5001/
+- Login: http://localhost:5001/login
+- Register: http://localhost:5001/register
+- Student Dashboard: http://localhost:5001/student/dashboard
+- Admin Dashboard: http://localhost:5001/admin/dashboard
+- Browse Courses: http://localhost:5001/browse-courses
+- Add Faculty: http://localhost:5001/add-faculty (use after opening the admin dashboard)
+
+## Default Admin Account
+The app creates a default admin automatically when it starts.
+
+```text
+Email: courseadmin123@gmail.com
+Password: courseadmin123
+```
+
+Faculty accounts are created by an administrator from the Admin Dashboard. Each faculty member receives a role-specific login and profile containing an employee ID, department, qualification, specialization, phone number, and email address.
+
+## Testing
+Run the route tests with:
+
+```bash
+cd /workspaces/Course-Management-System
+python3 -m unittest tests/test_routes.py
+```
+
+This project has been verified to pass the current route tests.
+
+## Production Configuration
+Set application secrets before deploying instead of using the local development defaults:
+
+```bash
+export SECRET_KEY="replace-with-a-long-random-value"
+export JWT_SECRET_KEY="replace-with-another-long-random-value"
+```
+
+The application now uses sessions and role checks. Students can access only their own profile, enrollments, progress, notifications, and certificates. Faculty accounts are created by administrators, and courses are assigned to faculty during course creation.
+
+For production deployment, use PostgreSQL, database migrations, HTTPS, a production WSGI server such as Gunicorn, backups, centralized logs, CSRF protection for all forms, and rate limiting on authentication endpoints.
+
+## Notes
+- The app uses SQLite for local development.
+- The frontend is static but is served by Flask templates.
+- You can extend the system with JWT-based APIs and a full React frontend later.
+
+## Future Improvements
+- Add JWT-protected APIs for students and admin
+- Add real-time notifications using Socket.IO
+- Convert frontend into React components with routing
+- Deploy front-end and backend to cloud hosting
+
+## License
+This project is intended for educational and academic use.
 

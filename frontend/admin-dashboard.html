@@ -31,24 +31,31 @@
 <!-- STATS -->
 <div class="row g-4 text-center">
 
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="glass">
-            <h2 class="stat">500+</h2>
+            <h2 class="stat">{{ total_students }}</h2>
             <p>Total Students</p>
         </div>
     </div>
 
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="glass">
-            <h2 class="stat">50+</h2>
+            <h2 class="stat">{{ total_courses }}</h2>
             <p>Total Courses</p>
         </div>
     </div>
 
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="glass">
-            <h2 class="stat">1200+</h2>
+            <h2 class="stat">{{ total_enrollments }}</h2>
             <p>Enrollments</p>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="glass">
+            <h2 class="stat">{{ total_faculty }}</h2>
+            <p>Total Faculty</p>
         </div>
     </div>
 
@@ -56,6 +63,14 @@
 
 <!-- QUICK ACTIONS -->
 <div class="row mt-5 g-4">
+
+    <div class="col-md-4">
+        <div class="glass text-center">
+            <h4>👩‍🏫 Add Faculty</h4>
+            <p>Create faculty login and professional profile</p>
+            <a href="{{ url_for('api.add_faculty') }}" class="btn btn-custom w-100">Add Faculty</a>
+        </div>
+    </div>
 
     <div class="col-md-4">
         <div class="glass text-center">

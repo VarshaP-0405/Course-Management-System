@@ -71,16 +71,14 @@
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label">
-                                Instructor Name
-                            </label>
-
-                            <input
-                                type="text"
-                                name="instructor"
-                                class="form-control"
-                                placeholder="Instructor Name"
-                                required>
+                            <label class="form-label">Assign Faculty</label>
+                            <select name="faculty_id" class="form-control" required>
+                                <option value="">Select faculty member</option>
+                                {% for faculty in faculty_members %}
+                                <option value="{{ faculty.Fid }}">{{ faculty.first_name }} {{ faculty.last_name }} ({{ faculty.department }})</option>
+                                {% endfor %}
+                            </select>
+                            <input type="hidden" name="instructor" value="Faculty">
                         </div>
 
                         <div class="mb-3">

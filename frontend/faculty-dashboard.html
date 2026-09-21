@@ -21,6 +21,32 @@
 
 <div class="container py-5">
   <h1 class="section-title" data-user-greeting>Faculty Dashboard</h1>
+  {% if faculty %}
+  <div class="glass p-4 mb-4">
+    <h3>{{ faculty.name }}</h3>
+    <p class="mb-1"><strong>Employee ID:</strong> {{ faculty.employee_id }}</p>
+    <p class="mb-1"><strong>Email:</strong> {{ faculty.email }}</p>
+    <p class="mb-1"><strong>Phone:</strong> {{ faculty.phone or 'Not provided' }}</p>
+    <p class="mb-1"><strong>Department:</strong> {{ faculty.department }}</p>
+    <p class="mb-1"><strong>Qualification:</strong> {{ faculty.qualification }}</p>
+    <p class="mb-0"><strong>Specialization:</strong> {{ faculty.specialization }}</p>
+  </div>
+  {% else %}
+  <div class="alert alert-info">Faculty details will appear here after an administrator creates your account.</div>
+  {% endif %}
+  <h3 class="mt-4 mb-3">Assigned Courses</h3>
+  <div class="row g-3 mb-4">
+    {% for course in assigned_courses %}
+    <div class="col-md-6">
+      <div class="glass p-3">
+        <h5>{{ course.cname }}</h5>
+        <p class="mb-0">{{ course.course_code }} · {{ course.duration }}</p>
+      </div>
+    </div>
+    {% else %}
+    <div class="col-12"><div class="alert alert-info">No courses have been assigned yet.</div></div>
+    {% endfor %}
+  </div>
   <div class="row g-4">
     <div class="col-md-4">
       <div class="glass p-4 text-center">

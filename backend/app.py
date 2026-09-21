@@ -1,3 +1,5 @@
+import os
+
 from flask import Flask
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
@@ -17,8 +19,11 @@ def create_app():
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
     # Security
-    app.config["SECRET_KEY"] = "varsupersecretkeydha"
-    app.config["JWT_SECRET_KEY"] = "this_is_a_super_secure_jwt_secret_key_2026_very_long"
+    app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "local-development-secret-change-me")
+    app.config["JWT_SECRET_KEY"] = os.getenv(
+        "JWT_SECRET_KEY",
+        "local-development-jwt-secret-change-me",
+    )
 
     models.db.init_app(app)
 
@@ -111,6 +116,6 @@ if __name__ == "__main__":
 
     app.run(
         host="0.0.0.0",
-        port=5000,
+        port=int(os.getenv("PORT", "5001")),
         debug=True
     )

@@ -25,5 +25,14 @@
     "duration": "3 months",
     "credits": "3",
     "description": "This course give you full details about agentic ai with hands on experience"
+  },
+  {
+    "id": 4,
+    "course_name": "Agentic AI",
+    "course_code": "AI101",
+    "instructor": "Thangam",
+    "duration": "3 months",
+    "credits": "3",
+    "description": "This Course is based on Agentic AI, contains about what is AI,AgenticAI and its workflow, includes hands-on practice also"
   }
 ]

@@ -30,19 +30,19 @@
     <div class="col-md-4">
       <div class="glass p-4">
         <h4>Total Students</h4>
-        <h2 id="report-students">0</h2>
+        <h2>{{ student_count }}</h2>
       </div>
     </div>
     <div class="col-md-4">
       <div class="glass p-4">
         <h4>Enrolled Courses</h4>
-        <h2 id="report-courses">0</h2>
+        <h2>{{ enrollment_count }}</h2>
       </div>
     </div>
     <div class="col-md-4">
       <div class="glass p-4">
         <h4>Completed Lessons</h4>
-        <h2 id="report-completed">0</h2>
+        <h2>{{ completed_lessons }}</h2>
       </div>
     </div>
   </div>
@@ -52,16 +52,5 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="form-validation.js"></script>
 <script src="page-app.js"></script>
-<script>
-  (function () {
-    const users = JSON.parse(localStorage.getItem('cms_users') || '[]');
-    const enrollments = JSON.parse(localStorage.getItem('cms_enrollments') || '[]');
-    const courses = JSON.parse(localStorage.getItem('course-data') || '[]');
-
-    document.getElementById('report-students').textContent = users.filter((user) => user.role === '3').length;
-    document.getElementById('report-courses').textContent = enrollments.length;
-    document.getElementById('report-completed').textContent = Math.max(0, Math.min(25, enrollments.length * 3));
-  })();
-</script>
 </body>
 </html>

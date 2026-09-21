@@ -3,6 +3,7 @@ import os
 from flask import Flask
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
+from sqlalchemy import inspect, text
 
 import models
 
@@ -31,6 +32,15 @@ def create_app():
     app.register_blueprint(api)
 
     return app
+
+
+def ensure_schema():
+    """Apply the small additive schema change for existing local databases."""
+    inspector = inspect(models.db.engine)
+    faculty_columns = {column['name'] for column in inspector.get_columns('faculty')}
+    if 'blacklisted' not in faculty_columns:
+        models.db.session.execute(text("ALTER TABLE faculty ADD COLUMN blacklisted VARCHAR(2) DEFAULT 'N'"))
+        models.db.session.commit()
 
 
 # Create Flask App
@@ -110,6 +120,7 @@ if __name__ == "__main__":
 
         # Create all tables
         models.db.create_all()
+        ensure_schema()
 
         # Create admin
         create_admin()

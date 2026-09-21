@@ -44,6 +44,7 @@ class Faculty(db.Model):
     qualification = db.Column(db.String(150), nullable=False)
     specialization = db.Column(db.String(150), nullable=False)
     employee_id = db.Column(db.String(50), unique=True, nullable=False)
+    blacklisted = db.Column(db.String(2), default="N")
 
 class Course(db.Model):
     __tablename__ = "courses"

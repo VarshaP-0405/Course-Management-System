@@ -111,6 +111,24 @@ style="width:{{ progress }}%">
 
 </p>
 
+<p class="text-start">
+
+<b>Notes:</b>
+
+{{ module.notes }}
+
+</p>
+
+{% if module.video_link %}
+
+<a href="{{ module.video_link }}" target="_blank" rel="noreferrer" class="btn btn-outline-info w-100 mb-2">
+
+Watch Video
+
+</a>
+
+{% endif %}
+
 <hr>
 
 <a

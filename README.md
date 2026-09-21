@@ -1,6 +1,6 @@
 # Course Management System
 
-A full-stack student course management and learning progress tracking system built with Flask, SQLAlchemy, and static HTML/CSS/JavaScript frontend pages.
+A full-stack student course management and learning progress tracking system built with Flask, SQLAlchemy, and a React frontend using client-side routing.
 
 ## Project Overview
 This project helps universities and training institutions manage student accounts, course information, enrollments, progress tracking, and admin operations from a single platform.
@@ -20,9 +20,6 @@ Admins can:
 - monitor dashboard data
 - add and update course records
 
-## Problem Statement
-Educational systems often rely on disconnected tools for registration, content access, and progress tracking. This leads to poor visibility, duplicate work, and slower administrative processes. This project centralizes those tasks into a simple web application.
-
 ## Features
 - User registration and login
 - Role-based dashboard access
@@ -31,16 +28,16 @@ Educational systems often rely on disconnected tools for registration, content a
 - Student profile and registration forms
 - Learning progress tracking
 - Notifications and certificate pages
-- Responsive HTML/CSS frontend
-- Flask backend with SQLAlchemy models
+- Responsive React-based frontend with routing
+- Flask REST API and database models
 - Password hashing and secure admin setup
 
 ## Tech Stack
-- Frontend: HTML5, CSS3, JavaScript
+- Frontend: React, Vite, React Router
 - Backend: Python, Flask
 - Database: SQLite (via Flask-SQLAlchemy)
-- Authentication: Flask-JWT-Extended and password hashing
-- Security: bcrypt / Werkzeug password hashing
+- Authentication: Flask session-based auth + password hashing
+- Security: Werkzeug password hashing
 - Version control: Git and GitHub
 
 ## Project Structure
@@ -53,86 +50,98 @@ Course-Management-System/
 │   ├── routes.py
 │   ├── requirements.txt
 │   └── __init__.py
-├── frontend/
-│   ├── index.html
-│   ├── login.html
-│   ├── register.html
-│   ├── admin-dashboard.html
-│   ├── student-dashboard.html
-│   ├── faculty-dashboard.html
-│   ├── browse-courses.html
-│   ├── course-details.html
-│   ├── edit-course.html
-│   ├── add-course.html
-│   ├── common.css
-│   ├── responsive.css
-│   ├── form-validation.js
-│   ├── page-app.js
-│   └── course-data.json
+├── frontend-react/
+│   ├── src/
+│   ├── package.json
+│   ├── vite.config.js
+│   └── eslint.config.js
 ├── tests/
 │   └── test_routes.py
 ├── requirements.txt
 ├── README.md
-└── coursevenv/
+├── coursevenv/
+└── frontend/
+    └── legacy static pages
 ```
+
+## React Routing Setup
+The React frontend uses React Router for navigation between pages.
+
+The actual flow matches the original CMS behavior:
+
+1. User opens the login page
+2. User enters email, password, and role
+3. The app posts to the backend login API
+4. The backend verifies the credentials and role
+5. React redirects the user to their dashboard:
+   - Admin -> /admin/dashboard
+   - Faculty -> /faculty/dashboard
+   - Student -> /student/dashboard
+
+Example route structure:
+
+```jsx
+<BrowserRouter>
+  <Routes>
+    <Route path="/" element={<HomePage />} />
+    <Route path="/login" element={<LoginPage />} />
+    <Route path="/register" element={<RegisterPage />} />
+    <Route path="/student/dashboard" element={<ProtectedRoute allowedRoles={[3]}><StudentDashboardPage /></ProtectedRoute>} />
+    <Route path="/faculty/dashboard" element={<ProtectedRoute allowedRoles={[2]}><FacultyDashboardPage /></ProtectedRoute>} />
+    <Route path="/admin/dashboard" element={<ProtectedRoute allowedRoles={[1]}><AdminDashboardPage /></ProtectedRoute>} />
+  </Routes>
+</BrowserRouter>
+```
+
+This means the user does not reload the page and each role is redirected automatically to the correct dashboard after login.
 
 ## Prerequisites
 - Python 3.10+
-- pip
+- Node.js 18+
+- npm
 - Git
 
 ## Setup Instructions
-From the project root, run:
+From the project root, install backend dependencies:
 
 ```bash
 cd /workspaces/Course-Management-System
 python3 -m pip install -r backend/requirements.txt
 ```
 
-If you want to use a virtual environment:
+Install React frontend dependencies:
 
 ```bash
-cd /workspaces/Course-Management-System
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r backend/requirements.txt
+cd /workspaces/Course-Management-System/frontend-react
+npm install
 ```
 
 ## Run the Application
-Start the Flask server from the project root:
+Start the Flask backend:
 
 ```bash
 cd /workspaces/Course-Management-System
-. .venv/bin/activate
-python backend/app.py
+python3 backend/app.py
 ```
 
-Then open your browser at:
-
-```text
-http://localhost:5001/
-```
-
-If port 5001 is already in use, run the app on another port:
+Start the React frontend in a second terminal:
 
 ```bash
-PORT=5002 python backend/app.py
+cd /workspaces/Course-Management-System/frontend-react
+npm run dev
 ```
 
-Then open the matching URL, such as:
+Open the frontend in the browser:
 
 ```text
-http://localhost:5002/
+http://localhost:5173
 ```
 
-The application will serve the frontend pages through Flask templates. Common pages include:
-- Home: http://localhost:5001/
-- Login: http://localhost:5001/login
-- Register: http://localhost:5001/register
-- Student Dashboard: http://localhost:5001/student/dashboard
-- Admin Dashboard: http://localhost:5001/admin/dashboard
-- Browse Courses: http://localhost:5001/browse-courses
-- Add Faculty: http://localhost:5001/add-faculty (use after opening the admin dashboard)
+The backend API is served at:
+
+```text
+http://localhost:5001
+```
 
 ## Default Admin Account
 The app creates a default admin automatically when it starts.
@@ -142,40 +151,63 @@ Email: courseadmin123@gmail.com
 Password: courseadmin123
 ```
 
-Faculty accounts are created by an administrator from the Admin Dashboard. Each faculty member receives a role-specific login and profile containing an employee ID, department, qualification, specialization, phone number, and email address.
+## Login Flow by Role
+This is the same flow as the older version of the application:
+
+- Student logs in -> redirected to /student/dashboard
+- Faculty logs in -> redirected to /faculty/dashboard
+- Admin logs in -> redirected to /admin/dashboard
+
+The React app uses a protected route check to stop users from visiting a dashboard that does not match their assigned role.
+
+## Available Routes in React
+- Home: /
+- Login: /login
+- Register: /register
+- Browse Courses: /browse-courses
+- Student Dashboard: /student/dashboard
+- Faculty Dashboard: /faculty/dashboard
+- Admin Dashboard: /admin/dashboard
+- Reports: /reports
+- Profile: /profile
+- Notifications: /notifications
+- Progress: /progress
+- Certificate: /certificate
 
 ## Testing
-Run the route tests with:
+Run the backend route tests with:
 
 ```bash
 cd /workspaces/Course-Management-System
 python3 -m unittest tests/test_routes.py
 ```
 
-This project has been verified to pass the current route tests.
+Run the frontend lint and build checks with:
+
+```bash
+cd /workspaces/Course-Management-System/frontend-react
+npm run lint
+npm run build
+```
 
 ## Production Configuration
-Set application secrets before deploying instead of using the local development defaults:
+Set application secrets before deploying instead of using local development defaults:
 
 ```bash
 export SECRET_KEY="replace-with-a-long-random-value"
 export JWT_SECRET_KEY="replace-with-another-long-random-value"
 ```
 
-The application now uses sessions and role checks. Students can access only their own profile, enrollments, progress, notifications, and certificates. Faculty accounts are created by administrators, and courses are assigned to faculty during course creation.
-
-For production deployment, use PostgreSQL, database migrations, HTTPS, a production WSGI server such as Gunicorn, backups, centralized logs, CSRF protection for all forms, and rate limiting on authentication endpoints.
-
 ## Notes
-- The app uses SQLite for local development.
-- The frontend is static but is served by Flask templates.
-- You can extend the system with JWT-based APIs and a full React frontend later.
+- The React app calls the Flask backend through API routes, such as /api/courses and /api/login.
+- The frontend is no longer a static HTML-only app; it is a client-side React SPA with navigation handled by React Router.
+- SQLite is used for local development.
 
 ## Future Improvements
-- Add JWT-protected APIs for students and admin
-- Add real-time notifications using Socket.IO
-- Convert frontend into React components with routing
-- Deploy front-end and backend to cloud hosting
+- Add more protected API endpoints for faculty and course management
+- Connect the remaining forms to live backend submission endpoints
+- Add JWT-based authentication
+- Deploy frontend and backend separately to production
 
 ## License
 This project is intended for educational and academic use.

@@ -2,74 +2,36 @@
   "users": [
     {
       "id": 1,
-      "email": "admin@example.com",
-      "password": "demo123",
+      "email": "courseadmin123@gmail.com",
       "role": 1,
-      "created_at": "2026-01-05T09:00:00Z"
+      "created_at": "2026-09-21T04:18:00.476713"
     },
     {
       "id": 2,
-      "email": "nisha.rao@example.com",
-      "password": "demo123",
-      "role": 2,
-      "created_at": "2026-01-06T09:00:00Z"
+      "email": "varsha@gmail.com",
+      "role": 3,
+      "created_at": "2026-09-21T04:23:32.153689"
     },
     {
       "id": 3,
-      "email": "james.carter@example.com",
-      "password": "demo123",
+      "email": "thangam@gmail.com",
       "role": 2,
-      "created_at": "2026-01-07T09:00:00Z"
-    },
-    {
-      "id": 4,
-      "email": "thangam@example.com",
-      "password": "demo123",
-      "role": 2,
-      "created_at": "2026-01-08T09:00:00Z"
-    },
-    {
-      "id": 5,
-      "email": "alice.johnson@example.com",
-      "password": "demo123",
-      "role": 3,
-      "created_at": "2026-01-10T09:00:00Z"
-    },
-    {
-      "id": 6,
-      "email": "brian.lee@example.com",
-      "password": "demo123",
-      "role": 3,
-      "created_at": "2026-01-11T09:00:00Z"
+      "created_at": "2026-09-21T09:05:15.035156"
     }
   ],
   "students": [
     {
       "id": 1,
       "Sid": 1,
-      "user_id": 5,
-      "first_name": "Alice",
-      "last_name": "Johnson",
-      "age": 20,
-      "gender": "Female",
-      "address": "14 College Avenue",
-      "phone": "555-0101",
-      "dob": "2006-03-14",
-      "department": "Computer Science",
-      "blacklisted": "N"
-    },
-    {
-      "id": 2,
-      "Sid": 2,
-      "user_id": 6,
-      "first_name": "Brian",
-      "last_name": "Lee",
-      "age": 21,
-      "gender": "Male",
-      "address": "28 University Road",
-      "phone": "555-0102",
-      "dob": "2005-08-22",
-      "department": "Information Technology",
+      "user_id": 2,
+      "first_name": "P.",
+      "last_name": "Varsha",
+      "age": 19,
+      "gender": "",
+      "address": "No.8b,38th Street,Nanganallur,Chennai",
+      "phone": "8925936484",
+      "dob": "2007-05-04",
+      "department": "Artificial Intelligence",
       "blacklisted": "N"
     }
   ],
@@ -77,40 +39,14 @@
     {
       "id": 1,
       "Fid": 1,
-      "user_id": 2,
-      "first_name": "Nisha",
-      "last_name": "Rao",
-      "phone": "555-0201",
-      "department": "Computer Science",
-      "qualification": "Ph.D. in Computer Science",
-      "specialization": "Python Programming",
-      "employee_id": "FAC-001",
-      "blacklisted": "N"
-    },
-    {
-      "id": 2,
-      "Fid": 2,
       "user_id": 3,
-      "first_name": "James",
-      "last_name": "Carter",
-      "phone": "555-0202",
-      "department": "Web Technologies",
-      "qualification": "M.S. in Software Engineering",
-      "specialization": "Web Development",
-      "employee_id": "FAC-002",
-      "blacklisted": "N"
-    },
-    {
-      "id": 3,
-      "Fid": 3,
-      "user_id": 4,
       "first_name": "Thangam",
-      "last_name": "Kumar",
-      "phone": "555-0203",
+      "last_name": "S",
+      "phone": "9940906833",
       "department": "Artificial Intelligence",
-      "qualification": "M.S. in Artificial Intelligence",
-      "specialization": "Agentic AI",
-      "employee_id": "FAC-003",
+      "qualification": "M.Tech",
+      "specialization": "Artificial Intelligence",
+      "employee_id": "F26AI001",
       "blacklisted": "N"
     }
   ],
@@ -122,7 +58,7 @@
       "instructor": "Dr. Nisha Rao",
       "duration": "6 Weeks",
       "credits": 3,
-      "category": "Programming",
+      "category": "General",
       "description": "A beginner-friendly introduction to Python programming."
     },
     {
@@ -132,7 +68,7 @@
       "instructor": "Prof. James Carter",
       "duration": "8 Weeks",
       "credits": 4,
-      "category": "Web Development",
+      "category": "General",
       "description": "Build modern web applications using HTML, CSS, and JavaScript."
     },
     {
@@ -142,7 +78,7 @@
       "instructor": "Thangam",
       "duration": "3 months",
       "credits": 3,
-      "category": "Artificial Intelligence",
+      "category": "General",
       "description": "This course give you full details about agentic ai with hands on experience"
     },
     {
@@ -152,268 +88,14 @@
       "instructor": "Thangam",
       "duration": "3 months",
       "credits": 3,
-      "category": "Artificial Intelligence",
+      "category": "General",
       "description": "This Course is based on Agentic AI, contains about what is AI,AgenticAI and its workflow, includes hands-on practice also"
     }
   ],
-  "course_faculty": [
-    {
-      "id": 1,
-      "course_id": 1,
-      "faculty_id": 1,
-      "assigned_at": "2026-01-12T09:00:00Z"
-    },
-    {
-      "id": 2,
-      "course_id": 2,
-      "faculty_id": 2,
-      "assigned_at": "2026-01-12T09:00:00Z"
-    },
-    {
-      "id": 3,
-      "course_id": 3,
-      "faculty_id": 3,
-      "assigned_at": "2026-01-12T09:00:00Z"
-    },
-    {
-      "id": 4,
-      "course_id": 4,
-      "faculty_id": 3,
-      "assigned_at": "2026-01-12T09:00:00Z"
-    }
-  ],
-  "modules": [
-    {
-      "id": 1,
-      "Mid": 1,
-      "course_id": 1,
-      "title": "Getting Started with Python",
-      "description": "Set up Python and run your first program.",
-      "module_number": 1,
-      "video_link": "https://example.com/videos/python-introduction",
-      "notes": "python-introduction.pdf"
-    },
-    {
-      "id": 2,
-      "Mid": 2,
-      "course_id": 1,
-      "title": "Variables and Data Types",
-      "description": "Work with variables, numbers, strings, and booleans.",
-      "module_number": 2,
-      "video_link": "https://example.com/videos/python-data-types",
-      "notes": "python-data-types.pdf"
-    },
-    {
-      "id": 3,
-      "Mid": 3,
-      "course_id": 1,
-      "title": "Conditions and Loops",
-      "description": "Use conditions and loops to control program flow.",
-      "module_number": 3,
-      "video_link": "https://example.com/videos/python-control-flow",
-      "notes": "python-control-flow.pdf"
-    },
-    {
-      "id": 4,
-      "Mid": 4,
-      "course_id": 2,
-      "title": "HTML and Semantic Structure",
-      "description": "Build accessible page structures with HTML.",
-      "module_number": 1,
-      "video_link": "https://example.com/videos/html-structure",
-      "notes": "html-structure.pdf"
-    },
-    {
-      "id": 5,
-      "Mid": 5,
-      "course_id": 2,
-      "title": "CSS Layout and Responsive Design",
-      "description": "Create responsive layouts with modern CSS.",
-      "module_number": 2,
-      "video_link": "https://example.com/videos/css-layout",
-      "notes": "css-layout.pdf"
-    },
-    {
-      "id": 6,
-      "Mid": 6,
-      "course_id": 2,
-      "title": "JavaScript Fundamentals",
-      "description": "Add interaction with JavaScript fundamentals.",
-      "module_number": 3,
-      "video_link": "https://example.com/videos/javascript-fundamentals",
-      "notes": "javascript-fundamentals.pdf"
-    },
-    {
-      "id": 7,
-      "Mid": 7,
-      "course_id": 2,
-      "title": "Working with APIs",
-      "description": "Connect browser applications to web APIs.",
-      "module_number": 4,
-      "video_link": "https://example.com/videos/web-apis",
-      "notes": "web-apis.pdf"
-    },
-    {
-      "id": 8,
-      "Mid": 8,
-      "course_id": 2,
-      "title": "Final Project",
-      "description": "Bring the course concepts together in a web project.",
-      "module_number": 5,
-      "video_link": "https://example.com/videos/web-final-project",
-      "notes": "final-project-brief.pdf"
-    },
-    {
-      "id": 9,
-      "Mid": 9,
-      "course_id": 3,
-      "title": "Introduction to Agentic AI",
-      "description": "Explore agents, tools, and common agent workflows.",
-      "module_number": 1,
-      "video_link": "https://example.com/videos/agentic-ai-introduction",
-      "notes": "agentic-ai-introduction.pdf"
-    },
-    {
-      "id": 10,
-      "Mid": 10,
-      "course_id": 3,
-      "title": "Tools and Planning",
-      "description": "Learn how agents select tools and plan tasks.",
-      "module_number": 2,
-      "video_link": "https://example.com/videos/agent-tools-planning",
-      "notes": "agent-tools-planning.pdf"
-    },
-    {
-      "id": 11,
-      "Mid": 11,
-      "course_id": 3,
-      "title": "Building an Agent Workflow",
-      "description": "Combine prompts and tools into a practical workflow.",
-      "module_number": 3,
-      "video_link": "https://example.com/videos/agent-workflow",
-      "notes": "agent-workflow.pdf"
-    },
-    {
-      "id": 12,
-      "Mid": 12,
-      "course_id": 3,
-      "title": "Evaluation and Safety",
-      "description": "Evaluate agent behavior and handle failure cases.",
-      "module_number": 4,
-      "video_link": "https://example.com/videos/agent-evaluation",
-      "notes": "agent-evaluation.pdf"
-    },
-    {
-      "id": 13,
-      "Mid": 13,
-      "course_id": 4,
-      "title": "Agentic AI Concepts and Workflow",
-      "description": "Practice a complete agent workflow with guided exercises.",
-      "module_number": 1,
-      "video_link": "https://example.com/videos/agentic-ai-workflow",
-      "notes": "agentic-ai-workflow.pdf"
-    }
-  ],
-  "enrollments": [
-    {
-      "id": 1,
-      "Eid": 1,
-      "student_id": 1,
-      "course_id": 1,
-      "enrollment_date": "2026-02-01T09:00:00Z",
-      "status": "Enrolled"
-    },
-    {
-      "id": 2,
-      "Eid": 2,
-      "student_id": 1,
-      "course_id": 2,
-      "enrollment_date": "2026-02-03T09:00:00Z",
-      "status": "Enrolled"
-    },
-    {
-      "id": 3,
-      "Eid": 3,
-      "student_id": 2,
-      "course_id": 3,
-      "enrollment_date": "2026-02-05T09:00:00Z",
-      "status": "Enrolled"
-    }
-  ],
-  "progress": [
-    {
-      "id": 1,
-      "Pid": 1,
-      "student_id": 1,
-      "course_id": 1,
-      "completed_modules": 3,
-      "total_modules": 3,
-      "progress_percentage": 100,
-      "last_updated": "2026-03-10T12:00:00Z"
-    },
-    {
-      "id": 2,
-      "Pid": 2,
-      "student_id": 1,
-      "course_id": 2,
-      "completed_modules": 3,
-      "total_modules": 5,
-      "progress_percentage": 60,
-      "last_updated": "2026-03-11T12:00:00Z"
-    },
-    {
-      "id": 3,
-      "Pid": 3,
-      "student_id": 2,
-      "course_id": 3,
-      "completed_modules": 1,
-      "total_modules": 4,
-      "progress_percentage": 25,
-      "last_updated": "2026-03-12T12:00:00Z"
-    }
-  ],
-  "notifications": [
-    {
-      "id": 1,
-      "Nid": 1,
-      "student_id": 1,
-      "title": "Python Basics completed",
-      "message": "You have completed all modules in Python Basics. Your certificate is ready.",
-      "is_read": false
-    },
-    {
-      "id": 2,
-      "Nid": 2,
-      "student_id": 1,
-      "title": "Web Development update",
-      "message": "The JavaScript Fundamentals module is now available.",
-      "is_read": false
-    },
-    {
-      "id": 3,
-      "Nid": 3,
-      "student_id": 2,
-      "title": "Welcome to Agentic AI",
-      "message": "Your course materials are ready to explore.",
-      "is_read": true
-    }
-  ],
-  "reviews": [
-    {
-      "id": 1,
-      "Rid": 1,
-      "student_id": 1,
-      "course_id": 1,
-      "rating": 5,
-      "review": "Clear explanations and a great introduction to Python."
-    },
-    {
-      "id": 2,
-      "Rid": 2,
-      "student_id": 2,
-      "course_id": 3,
-      "rating": 4,
-      "review": "Useful hands-on examples of agent workflows."
-    }
-  ]
+  "course_faculty": [],
+  "modules": [],
+  "enrollments": [],
+  "progress": [],
+  "notifications": [],
+  "reviews": []
 }

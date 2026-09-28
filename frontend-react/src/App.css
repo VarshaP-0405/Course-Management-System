@@ -422,6 +422,96 @@ textarea:focus {
   padding: 0;
 }
 
+.database-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.database-toolbar {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto minmax(190px, auto);
+  align-items: end;
+  gap: 16px;
+}
+
+.database-toolbar-actions,
+.database-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mirror-status {
+  display: grid;
+  gap: 4px;
+  justify-self: end;
+  text-align: right;
+  font-weight: 700;
+}
+
+.mirror-status small {
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 400;
+}
+
+.mirror-status.is-synced {
+  color: #a7f3d0;
+}
+
+.mirror-status.has-error {
+  color: #ffd4d4;
+}
+
+.database-editor {
+  display: grid;
+  gap: 14px;
+  padding: 18px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.database-editor textarea {
+  min-height: 260px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.database-table-wrap {
+  overflow-x: auto;
+}
+
+.database-table {
+  width: 100%;
+  min-width: 680px;
+  border-collapse: collapse;
+}
+
+.database-table th,
+.database-table td {
+  padding: 12px 10px;
+  vertical-align: top;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.database-table pre {
+  max-width: 680px;
+  max-height: 180px;
+  margin: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+}
+
+.btn.danger {
+  color: #ffe4e6;
+  border-color: rgba(251, 113, 133, 0.4);
+  background: rgba(190, 18, 60, 0.3);
+}
+
 .detail-meta,
 .certificate-meta {
   display: flex;
@@ -529,6 +619,15 @@ textarea:focus {
   .two-col,
   .progress-meta {
     grid-template-columns: 1fr;
+  }
+
+  .database-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .mirror-status {
+    justify-self: start;
+    text-align: left;
   }
 
   .nav-wrap,

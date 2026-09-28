@@ -10,7 +10,24 @@ import {
 } from 'react-router-dom'
 import './App.css'
 
-const API_BASE = `http://${window.location.hostname}:5001`
+const API_BASE = import.meta.env.VITE_API_BASE || ''
+const databaseCollections = [
+  'users', 'students', 'faculty', 'courses', 'course_faculty',
+  'modules', 'enrollments', 'progress', 'notifications', 'reviews',
+]
+
+const databaseTemplates = {
+  users: { email: '', role: 3, password: '' },
+  students: { user_id: null, first_name: '', last_name: '', department: '' },
+  faculty: { user_id: null, first_name: '', last_name: '', department: '', qualification: '', specialization: '', employee_id: '' },
+  courses: { course_name: '', course_code: '', instructor: '', duration: '', credits: 0, category: '', description: '' },
+  course_faculty: { course_id: null, faculty_id: null },
+  modules: { course_id: null, title: '', description: '', module_number: 1, video_link: '', notes: '' },
+  enrollments: { student_id: null, course_id: null, status: 'Enrolled' },
+  progress: { student_id: null, course_id: null, completed_modules: 0, total_modules: 0, progress_percentage: 0 },
+  notifications: { student_id: null, title: '', message: '', is_read: false },
+  reviews: { student_id: null, course_id: null, rating: 5, review: '' },
+}
 
 const roleDestinations = {
   1: '/admin/dashboard',
@@ -67,6 +84,7 @@ const navItems = [
 
 const adminNavItems = [
   { label: 'Admin Dashboard', to: '/admin/dashboard' },
+  { label: 'Database', to: '/admin/database' },
   { label: 'Students', to: '/students' },
   { label: 'Add Faculty', to: '/add-faculty' },
   { label: 'Add Course', to: '/add-course' },
@@ -893,6 +911,7 @@ function AdminDashboardPage() {
   }, [])
 
   const quickActions = [
+    { label: 'Database', to: '/admin/database', description: 'View and manage live records' },
     { label: 'Student List', to: '/students', description: 'Manage all learners' },
     { label: 'Add Faculty', to: '/add-faculty', description: 'Create faculty profiles' },
     { label: 'Add Course', to: '/add-course', description: 'Create new programs' },
@@ -1499,6 +1518,209 @@ function ReportsPage() {
   )
 }
 
+function AdminDatabasePage() {
+  const [collection, setCollection] = useState('courses')
+  const [records, setRecords] = useState([])
+  const [mirrorStatus, setMirrorStatus] = useState(null)
+  const [editor, setEditor] = useState(null)
+  const [draft, setDraft] = useState('')
+  const [notice, setNotice] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [refreshedAt, setRefreshedAt] = useState('')
+
+  useEffect(() => {
+    let active = true
+    const loadRecords = async () => {
+      try {
+        const [recordsResponse, statusResponse] = await Promise.all([
+          fetch(`${API_BASE}/api/admin/database/${collection}`, {
+            credentials: 'include',
+            headers: { Accept: 'application/json' },
+          }),
+          fetch(`${API_BASE}/api/admin/database/status`, {
+            credentials: 'include',
+            headers: { Accept: 'application/json' },
+          }),
+        ])
+        const [recordsData, statusData] = await Promise.all([
+          recordsResponse.json(),
+          statusResponse.json(),
+        ])
+        if (!recordsResponse.ok) throw new Error(recordsData.message || 'Unable to load records')
+        if (!active) return
+        setRecords(Array.isArray(recordsData) ? recordsData : [])
+        setMirrorStatus(statusData)
+        setRefreshedAt(new Date().toLocaleTimeString())
+        setError('')
+      } catch (loadError) {
+        if (active) setError(loadError.message)
+      }
+    }
+
+    loadRecords()
+    const intervalId = window.setInterval(loadRecords, 5000)
+    return () => {
+      active = false
+      window.clearInterval(intervalId)
+    }
+  }, [collection])
+
+  const refreshRecords = async () => {
+    setLoading(true)
+    try {
+      const [recordsResponse, statusResponse] = await Promise.all([
+        fetch(`${API_BASE}/api/admin/database/${collection}`, { credentials: 'include' }),
+        fetch(`${API_BASE}/api/admin/database/status`, { credentials: 'include' }),
+      ])
+      const [recordsData, statusData] = await Promise.all([
+        recordsResponse.json(),
+        statusResponse.json(),
+      ])
+      if (!recordsResponse.ok) throw new Error(recordsData.message || 'Unable to load records')
+      setRecords(Array.isArray(recordsData) ? recordsData : [])
+      setMirrorStatus(statusData)
+      setRefreshedAt(new Date().toLocaleTimeString())
+      setError('')
+    } catch (loadError) {
+      setError(loadError.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const beginCreate = () => {
+    setEditor({ mode: 'create' })
+    setDraft(JSON.stringify(databaseTemplates[collection], null, 2))
+    setNotice('')
+    setError('')
+  }
+
+  const beginUpdate = (record) => {
+    setEditor({ mode: 'update', id: record.id })
+    setDraft(JSON.stringify(record, null, 2))
+    setNotice('')
+    setError('')
+  }
+
+  const saveRecord = async (event) => {
+    event.preventDefault()
+    let body
+    try {
+      body = JSON.parse(draft)
+      if (!body || Array.isArray(body) || typeof body !== 'object') {
+        throw new Error('Enter one JSON object.')
+      }
+    } catch (parseError) {
+      setError(parseError.message)
+      return
+    }
+
+    const isCreate = editor.mode === 'create'
+    const url = isCreate
+      ? `${API_BASE}/api/admin/database/${collection}`
+      : `${API_BASE}/api/admin/database/${collection}/${editor.id}`
+    try {
+      const response = await fetch(url, {
+        method: isCreate ? 'POST' : 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.message || 'Unable to save record')
+      setEditor(null)
+      setNotice(`${isCreate ? 'Record added' : 'Record updated'} in ${collection}.`)
+      setError('')
+      await refreshRecords()
+    } catch (saveError) {
+      setError(saveError.message)
+    }
+  }
+
+  const deleteRecord = async (record) => {
+    if (!window.confirm(`Delete ${collection} record ${record.id}?`)) return
+    try {
+      const response = await fetch(`${API_BASE}/api/admin/database/${collection}/${record.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.message || 'Unable to delete record')
+      setNotice(`Record ${record.id} deleted from ${collection}.`)
+      setError('')
+      await refreshRecords()
+    } catch (deleteError) {
+      setError(deleteError.message)
+    }
+  }
+
+  return (
+    <PageShell title="Database" subtitle="Live application records with a JSON mirror.">
+      <section className="panel-card database-panel">
+        <div className="database-toolbar">
+          <label>
+            Collection
+            <select value={collection} onChange={(event) => { setCollection(event.target.value); setEditor(null) }}>
+              {databaseCollections.map((name) => <option key={name} value={name}>{name.replaceAll('_', ' ')}</option>)}
+            </select>
+          </label>
+          <div className="database-toolbar-actions">
+            <button className="btn secondary" type="button" onClick={refreshRecords} disabled={loading}>
+              {loading ? 'Loading…' : 'Get data'}
+            </button>
+            <button className="btn primary" type="button" onClick={beginCreate}>Add record</button>
+          </div>
+          <div className={`mirror-status ${mirrorStatus?.ok ? 'is-synced' : 'has-error'}`} role="status">
+            {mirrorStatus?.ok ? 'JSON mirror synced' : mirrorStatus?.error ? `Mirror error: ${mirrorStatus.error}` : 'JSON mirror status unavailable'}
+            {refreshedAt ? <small>Last refreshed {refreshedAt}</small> : null}
+          </div>
+        </div>
+
+        {notice ? <p className="form-message success" role="status">{notice}</p> : null}
+        {error ? <p className="form-message error" role="alert">{error}</p> : null}
+
+        {editor ? (
+          <form className="database-editor" onSubmit={saveRecord}>
+            <div className="section-head">
+              <h3>{editor.mode === 'create' ? `Add ${collection.replaceAll('_', ' ')}` : `Update ${collection.replaceAll('_', ' ')} #${editor.id}`}</h3>
+              <button className="btn secondary small" type="button" onClick={() => setEditor(null)}>Cancel</button>
+            </div>
+            <label>
+              Record JSON
+              <textarea value={draft} onChange={(event) => setDraft(event.target.value)} spellCheck="false" required />
+            </label>
+            <button className="btn primary" type="submit">{editor.mode === 'create' ? 'Save record' : 'Update record'}</button>
+          </form>
+        ) : null}
+
+        <div className="database-table-wrap">
+          <table className="database-table">
+            <thead>
+              <tr><th>ID</th><th>Record</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+              {records.map((record) => (
+                <tr key={record.id}>
+                  <td>{record.id}</td>
+                  <td><pre>{JSON.stringify(record, null, 2)}</pre></td>
+                  <td>
+                    <div className="database-row-actions">
+                      <button className="btn secondary small" type="button" onClick={() => beginUpdate(record)}>Update</button>
+                      <button className="btn danger small" type="button" onClick={() => deleteRecord(record)}>Delete</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {!records.length ? <tr><td colSpan="3" className="empty-state">No records in this collection.</td></tr> : null}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </PageShell>
+  )
+}
+
 function NotFoundPage() {
   return (
     <PageShell title="Page not found" subtitle="The route you requested does not exist.">
@@ -1525,6 +1747,7 @@ function App() {
             <Route path="/student/dashboard" element={<RoleRoute allowedRoles={['3']}><StudentDashboardPage /></RoleRoute>} />
             <Route path="/faculty/dashboard" element={<RoleRoute allowedRoles={['2']}><FacultyDashboardPage /></RoleRoute>} />
             <Route path="/admin/dashboard" element={<RoleRoute allowedRoles={['1']}><AdminDashboardPage /></RoleRoute>} />
+            <Route path="/admin/database" element={<RoleRoute allowedRoles={['1']}><AdminDatabasePage /></RoleRoute>} />
             <Route path="/add-faculty" element={<RoleRoute allowedRoles={['1']}><AddFacultyPage /></RoleRoute>} />
             <Route path="/students" element={<RoleRoute allowedRoles={['1']}><StudentsPage /></RoleRoute>} />
             <Route path="/add-course" element={<RoleRoute allowedRoles={['1']}><AddCoursePage /></RoleRoute>} />

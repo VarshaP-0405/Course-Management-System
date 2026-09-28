@@ -8,7 +8,7 @@ from sqlalchemy import inspect, text
 import models
 
 
-def create_app():
+def create_app(config=None):
     app = Flask(
         __name__,
         template_folder="../frontend",
@@ -18,6 +18,11 @@ def create_app():
     # Database
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///hospital.db"
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    app.config["MOCK_DATABASE_PATH"] = os.getenv(
+        "MOCK_DATABASE_PATH",
+        os.path.join(os.path.dirname(os.path.dirname(__file__)), "mockapi", "db.json"),
+    )
+    app.config["MOCK_DATABASE_MIRROR_ENABLED"] = True
 
     # Security
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "local-development-secret-change-me")
@@ -25,8 +30,12 @@ def create_app():
         "JWT_SECRET_KEY",
         "local-development-jwt-secret-change-me",
     )
+    if config:
+        app.config.update(config)
 
     models.db.init_app(app)
+
+    import mock_database
 
     from routes import api
     app.register_blueprint(api)
@@ -124,6 +133,8 @@ if __name__ == "__main__":
 
         # Create admin
         create_admin()
+        from mock_database import sync_database_to_json
+        sync_database_to_json(models.db.engine, app.config["MOCK_DATABASE_PATH"])
 
     app.run(
         host="0.0.0.0",

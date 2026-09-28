@@ -1,8 +1,9 @@
 from functools import wraps
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, send_from_directory
+from flask import Blueprint, current_app, render_template, request, redirect, url_for, flash, session, jsonify, send_from_directory
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from models import db, User, Student, Faculty, Course, CourseFaculty, Module, Enrollment, Notification, Progress
+from sqlalchemy.exc import IntegrityError
+from models import db, User, Student, Faculty, Course, CourseFaculty, Module, Enrollment, Notification, Progress, Review
 import datetime
 import json
 import os
@@ -92,6 +93,194 @@ def write_courses(courses):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as handle:
         json.dump(courses, handle, indent=2)
+
+
+DATABASE_RESOURCES = {
+    'users': {
+        'model': User,
+        'primary_key': 'id',
+        'fields': {'email': 'email', 'role': 'role'},
+    },
+    'students': {
+        'model': Student,
+        'primary_key': 'Sid',
+        'fields': {
+            'user_id': 'user_id', 'first_name': 'first_name', 'last_name': 'last_name',
+            'age': 'age', 'gender': 'gender', 'address': 'address', 'phone': 'phone',
+            'dob': 'dob', 'department': 'department', 'blacklisted': 'blacklisted',
+        },
+    },
+    'faculty': {
+        'model': Faculty,
+        'primary_key': 'Fid',
+        'fields': {
+            'user_id': 'user_id', 'first_name': 'first_name', 'last_name': 'last_name',
+            'phone': 'phone', 'department': 'department', 'qualification': 'qualification',
+            'specialization': 'specialization', 'employee_id': 'employee_id',
+            'blacklisted': 'blacklisted',
+        },
+    },
+    'courses': {
+        'model': Course,
+        'primary_key': 'Cid',
+        'fields': {
+            'course_name': 'cname', 'course_code': 'course_code', 'instructor': 'instructor',
+            'duration': 'duration', 'description': 'description', 'category': 'category',
+            'credits': 'credits',
+        },
+    },
+    'course_faculty': {
+        'model': CourseFaculty,
+        'primary_key': 'id',
+        'fields': {'course_id': 'course_id', 'faculty_id': 'faculty_id'},
+    },
+    'modules': {
+        'model': Module,
+        'primary_key': 'Mid',
+        'fields': {
+            'course_id': 'course_id', 'title': 'title', 'description': 'description',
+            'module_number': 'module_number', 'video_link': 'video_link', 'notes': 'notes',
+        },
+    },
+    'enrollments': {
+        'model': Enrollment,
+        'primary_key': 'Eid',
+        'fields': {'student_id': 'student_id', 'course_id': 'course_id', 'status': 'status'},
+    },
+    'progress': {
+        'model': Progress,
+        'primary_key': 'Pid',
+        'fields': {
+            'student_id': 'student_id', 'course_id': 'course_id',
+            'completed_modules': 'completed_modules', 'total_modules': 'total_modules',
+            'progress_percentage': 'progress_percentage',
+        },
+    },
+    'notifications': {
+        'model': Notification,
+        'primary_key': 'Nid',
+        'fields': {'student_id': 'student_id', 'title': 'title', 'message': 'message', 'is_read': 'is_read'},
+    },
+    'reviews': {
+        'model': Review,
+        'primary_key': 'Rid',
+        'fields': {'student_id': 'student_id', 'course_id': 'course_id', 'rating': 'rating', 'review': 'review'},
+    },
+}
+
+
+def serialize_database_record(resource, record):
+    spec = DATABASE_RESOURCES[resource]
+    primary_key = spec['primary_key']
+    record_id = getattr(record, primary_key)
+    serialized = {'id': record_id}
+    if primary_key != 'id':
+        serialized[primary_key] = record_id
+
+    for field, attribute in spec['fields'].items():
+        value = getattr(record, attribute)
+        serialized[field] = value.isoformat() if isinstance(value, datetime.datetime) else value
+
+    if resource == 'course_faculty':
+        serialized['assigned_at'] = record.assigned_at.isoformat() if record.assigned_at else None
+    elif resource == 'enrollments':
+        serialized['enrollment_date'] = record.enrollment_date.isoformat() if record.enrollment_date else None
+    elif resource == 'progress':
+        serialized['last_updated'] = record.last_updated.isoformat() if record.last_updated else None
+    elif resource == 'users':
+        serialized['created_at'] = record.created_at.isoformat() if record.created_at else None
+    return serialized
+
+
+def database_payload_values(resource, payload, partial=False):
+    spec = DATABASE_RESOURCES[resource]
+    fields = dict(spec['fields'])
+    if resource == 'users':
+        fields['password'] = 'password'
+
+    primary_keys = {'id', spec['primary_key']}
+    read_only_fields = {'created_at', 'assigned_at', 'enrollment_date', 'last_updated'}
+    values = {}
+    for field, value in payload.items():
+        if field in primary_keys or field in read_only_fields:
+            continue
+        if field not in fields:
+            raise ValueError(f'Field "{field}" cannot be changed.')
+        attribute = fields[field]
+        if resource == 'users' and field == 'password':
+            if not isinstance(value, str) or not value:
+                if partial:
+                    continue
+                raise ValueError('A password is required when creating a user.')
+            value = generate_password_hash(value)
+        else:
+            column = spec['model'].__table__.columns[attribute]
+            if value is not None:
+                python_type = column.type.python_type
+                if python_type is int:
+                    value = int(value)
+                elif python_type is float:
+                    value = float(value)
+                elif python_type is bool and not isinstance(value, bool):
+                    value = str(value).lower() in ('true', '1', 'yes')
+        values[attribute] = value
+
+    if resource == 'users' and not partial and 'password' not in payload:
+        raise ValueError('A password is required when creating a user.')
+    if resource == 'users' and values.get('role') not in (None, 1, 2, 3):
+        raise ValueError('Role must be 1 (admin), 2 (faculty), or 3 (student).')
+
+    related_models = {
+        ('students', 'user_id'): User,
+        ('faculty', 'user_id'): User,
+        ('course_faculty', 'course_id'): Course,
+        ('course_faculty', 'faculty_id'): Faculty,
+        ('modules', 'course_id'): Course,
+        ('enrollments', 'student_id'): Student,
+        ('enrollments', 'course_id'): Course,
+        ('progress', 'student_id'): Student,
+        ('progress', 'course_id'): Course,
+        ('notifications', 'student_id'): Student,
+        ('reviews', 'student_id'): Student,
+        ('reviews', 'course_id'): Course,
+    }
+    for attribute, value in values.items():
+        related_model = related_models.get((resource, attribute))
+        if related_model and value is not None and db.session.get(related_model, value) is None:
+            raise ValueError(f'{attribute} does not refer to an existing record.')
+    return values
+
+
+def delete_database_record(resource, record):
+    if resource == 'users':
+        student = Student.query.filter_by(user_id=record.id).first()
+        faculty = Faculty.query.filter_by(user_id=record.id).first()
+        if student:
+            for model in (Enrollment, Progress, Notification, Review):
+                db.session.query(model).filter_by(student_id=student.Sid).delete(synchronize_session=False)
+            db.session.delete(student)
+        if faculty:
+            CourseFaculty.query.filter_by(faculty_id=faculty.Fid).delete(synchronize_session=False)
+            db.session.delete(faculty)
+    elif resource == 'students':
+        for model in (Enrollment, Progress, Notification, Review):
+            db.session.query(model).filter_by(student_id=record.Sid).delete(synchronize_session=False)
+        user = db.session.get(User, record.user_id)
+        db.session.delete(record)
+        if user:
+            db.session.delete(user)
+        return
+    elif resource == 'faculty':
+        CourseFaculty.query.filter_by(faculty_id=record.Fid).delete(synchronize_session=False)
+        user = db.session.get(User, record.user_id)
+        db.session.delete(record)
+        if user:
+            db.session.delete(user)
+        return
+    elif resource == 'courses':
+        for model in (CourseFaculty, Module, Enrollment, Progress, Review):
+            db.session.query(model).filter_by(course_id=record.Cid).delete(synchronize_session=False)
+    db.session.delete(record)
 
 
 # ===============================
@@ -858,6 +1047,100 @@ def api_admin_summary():
         'total_courses': Course.query.count(),
         'total_enrollments': Enrollment.query.count(),
     })
+
+
+@api.route('/api/admin/database/status')
+@require_role(1)
+def api_admin_database_status():
+    status = current_app.extensions.get('mock_database_mirror_status')
+    path = current_app.config.get('MOCK_DATABASE_PATH')
+    if status is None:
+        status = {'ok': bool(path and os.path.exists(path)), 'error': None}
+    return jsonify(status)
+
+
+@api.route('/api/admin/database/<resource>', methods=['GET', 'POST'])
+@require_role(1)
+def api_admin_database_collection(resource):
+    spec = DATABASE_RESOURCES.get(resource)
+    if spec is None:
+        return jsonify({'message': 'Unknown database collection.'}), 404
+
+    model = spec['model']
+    primary_key = spec['primary_key']
+    if request.method == 'GET':
+        rows = model.query.order_by(getattr(model, primary_key)).all()
+        return jsonify([serialize_database_record(resource, row) for row in rows])
+
+    payload = get_request_payload()
+    try:
+        values = database_payload_values(resource, payload)
+        if not values:
+            raise ValueError('Provide fields for the new record.')
+        if resource == 'users' and not {'email', 'role', 'password'}.issubset(payload):
+            raise ValueError('Email, role, and password are required for a user.')
+        record = model(**values)
+        db.session.add(record)
+        db.session.commit()
+    except ValueError as error:
+        db.session.rollback()
+        return jsonify({'message': str(error)}), 400
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({'message': 'The record conflicts with existing data or is missing a required field.'}), 409
+
+    return jsonify(serialize_database_record(resource, record)), 201
+
+
+@api.route('/api/admin/database/<resource>/<int:record_id>', methods=['GET', 'PUT', 'PATCH', 'DELETE'])
+@require_role(1)
+def api_admin_database_record(resource, record_id):
+    spec = DATABASE_RESOURCES.get(resource)
+    if spec is None:
+        return jsonify({'message': 'Unknown database collection.'}), 404
+
+    model = spec['model']
+    record = db.session.get(model, record_id)
+    if record is None:
+        return jsonify({'message': 'Record not found.'}), 404
+
+    if request.method == 'GET':
+        return jsonify(serialize_database_record(resource, record))
+
+    if request.method == 'DELETE':
+        if resource == 'users' and record.id == current_user().id:
+            return jsonify({'message': 'You cannot delete the account currently in use.'}), 409
+        if resource == 'users' and record.role == 1 and User.query.filter_by(role=1).count() <= 1:
+            return jsonify({'message': 'At least one administrator account must remain.'}), 409
+        delete_database_record(resource, record)
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            return jsonify({'message': 'This record is still linked to other data.'}), 409
+        return jsonify({'success': True, 'id': record_id})
+
+    payload = get_request_payload()
+    try:
+        values = database_payload_values(resource, payload, partial=True)
+        if not values:
+            raise ValueError('Provide at least one field to update.')
+        if resource == 'users' and values.get('role') not in (None, 1, 2, 3):
+            raise ValueError('Role must be 1 (admin), 2 (faculty), or 3 (student).')
+        if resource == 'users' and record.role == 1 and values.get('role', 1) != 1:
+            if User.query.filter_by(role=1).count() <= 1:
+                raise ValueError('At least one administrator account must remain.')
+        for attribute, value in values.items():
+            setattr(record, attribute, value)
+        db.session.commit()
+    except ValueError as error:
+        db.session.rollback()
+        return jsonify({'message': str(error)}), 400
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({'message': 'The update conflicts with existing data.'}), 409
+
+    return jsonify(serialize_database_record(resource, record))
 
 
 def serialize_student(student, user):

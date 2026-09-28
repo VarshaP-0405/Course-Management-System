@@ -1,8 +1,27 @@
-# Mock API
+# Database Mirror
 
-This JSON Server exposes every collection in `db.json` as a writable REST resource. Changes made through the API are saved back to `db.json`.
+The Flask application uses SQLite as its source of truth and mirrors committed records into `db.json`. Passwords and password hashes are never copied into the JSON file. The React admin database page reads and writes through Flask, so changes made elsewhere in the app appear there as well.
 
-## Start
+## Run the application
+
+Start Flask from the repository root:
+
+```bash
+.venv/bin/python backend/app.py
+```
+
+In a second terminal, start the React app:
+
+```bash
+cd frontend-react
+npm run dev
+```
+
+Sign in as an admin and open **Database** or visit `/admin/database`. The page has controls to get, add, update, and delete records from each collection. It refreshes automatically and shows whether the JSON mirror is synced.
+
+In Codespaces, share the forwarded React port with staff. Keep the Flask and JSON ports private; the JSON endpoint is not an authenticated app interface.
+
+## Inspect the JSON mirror over HTTP
 
 ```bash
 cd mockapi
@@ -10,34 +29,4 @@ npm install
 npm start
 ```
 
-The API listens on `http://localhost:3001`. In Codespaces, forward port `3001` from the Ports tab to access it from a browser or share it with staff.
-
-## CRUD examples
-
-Use any collection name from `db.json`, such as `courses`, `students`, `faculty`, `modules`, or `enrollments`.
-
-```bash
-# Read a collection or one record
-curl http://localhost:3001/courses
-curl http://localhost:3001/courses/1
-
-# Create a record
-curl -X POST http://localhost:3001/courses \
-  -H 'Content-Type: application/json' \
-  -d '{"course_name":"Demo Course","course_code":"DM101","instructor":"Demo Instructor","duration":"4 weeks","credits":2,"category":"Demo","description":"Sample course"}'
-
-# Replace a record
-curl -X PUT http://localhost:3001/courses/1 \
-  -H 'Content-Type: application/json' \
-  -d '{"id":1,"course_name":"Python Basics","course_code":"PY101","instructor":"Dr. Nisha Rao","duration":"6 Weeks","credits":3,"category":"Programming","description":"A beginner-friendly introduction to Python programming."}'
-
-# Update selected fields
-curl -X PATCH http://localhost:3001/courses/1 \
-  -H 'Content-Type: application/json' \
-  -d '{"description":"Updated demo description"}'
-
-# Delete a record
-curl -X DELETE http://localhost:3001/courses/1
-```
-
-All endpoints support the same CRUD methods: `GET`, `POST`, `PUT`, `PATCH`, and `DELETE`. This mock API has no authentication; use only demo data and keep the forwarded port private when possible.
+The local, read-only JSON endpoint listens at `http://localhost:3001`, for example `http://localhost:3001/courses`. Write requests are rejected so the mirror cannot drift from the SQLite database. Use the admin database page for CRUD operations.

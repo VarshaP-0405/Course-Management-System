@@ -1,18 +1,23 @@
 import os
 import sys
+import json
+import tempfile
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'backend'))
 
 from app import create_app
 from models import db, User, Student, Faculty, Course, CourseFaculty, Enrollment, Module
+from mock_database import sync_database_to_json
 from werkzeug.security import generate_password_hash
 
 
 class RouteTests(unittest.TestCase):
     def setUp(self):
-        self.app = create_app()
-        self.app.config['TESTING'] = True
+        self.app = create_app({
+            'TESTING': True,
+            'SQLALCHEMY_DATABASE_URI': 'sqlite://',
+        })
         self.client = self.app.test_client()
         self.app_context = self.app.app_context()
         self.app_context.push()
@@ -49,6 +54,63 @@ class RouteTests(unittest.TestCase):
         response = self.client.get('/browse-courses')
         self.assertEqual(response.status_code, 200)
         self.assertIn('Available Courses', response.get_data(as_text=True))
+
+    def test_mock_database_export_omits_passwords_and_keeps_page_fields(self):
+        user = User(email='mirror@example.com', password='hashed-secret', role=3)
+        db.session.add(user)
+        db.session.commit()
+        student = Student(user_id=user.id, first_name='Mira', last_name='Lee')
+        db.session.add(student)
+        db.session.commit()
+        course = Course(cname='Mirror Course', instructor='Demo Instructor', course_code='MIR101')
+        db.session.add(course)
+        db.session.commit()
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, 'db.json')
+            sync_database_to_json(db.engine, path)
+            with open(path, encoding='utf-8') as handle:
+                mirrored = json.load(handle)
+
+        self.assertNotIn('password', mirrored['users'][0])
+        self.assertEqual(mirrored['students'][0]['id'], mirrored['students'][0]['Sid'])
+        self.assertEqual(mirrored['courses'][0]['course_name'], 'Mirror Course')
+
+    def test_admin_database_crud_is_protected_and_returns_safe_records(self):
+        admin = User(email='admin@example.com', password='hashed-secret', role=1)
+        db.session.add(admin)
+        db.session.commit()
+
+        denied = self.client.get('/api/admin/database/courses')
+        self.assertEqual(denied.status_code, 401)
+        with self.client.session_transaction() as stored_session:
+            stored_session['user_id'] = admin.id
+
+        users = self.client.get('/api/admin/database/users')
+        self.assertEqual(users.status_code, 200)
+        self.assertNotIn('password', users.get_json()[0])
+
+        created = self.client.post('/api/admin/database/courses', json={
+            'course_name': 'Database CRUD',
+            'course_code': 'DB101',
+            'instructor': 'Demo Instructor',
+            'duration': '4 weeks',
+            'credits': 2,
+        })
+        self.assertEqual(created.status_code, 201)
+        course_id = created.get_json()['id']
+
+        updated = self.client.patch(
+            f'/api/admin/database/courses/{course_id}',
+            json={'description': 'Updated from the admin database page.'},
+        )
+        self.assertEqual(updated.status_code, 200)
+        self.assertEqual(updated.get_json()['description'], 'Updated from the admin database page.')
+
+        deleted = self.client.delete(f'/api/admin/database/courses/{course_id}')
+        self.assertEqual(deleted.status_code, 200)
+        missing = self.client.get(f'/api/admin/database/courses/{course_id}')
+        self.assertEqual(missing.status_code, 404)
 
     def test_unregistered_user_redirects_to_register(self):
         response = self.client.post(

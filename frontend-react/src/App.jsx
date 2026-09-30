@@ -8,9 +8,10 @@ import {
   useNavigate,
   useParams,
 } from 'react-router-dom'
+import { useApp } from './useApp.js'
+import { request } from './api.js'
 import './App.css'
 
-const API_BASE = import.meta.env.VITE_API_BASE || ''
 const databaseCollections = [
   'users', 'students', 'faculty', 'courses', 'course_faculty',
   'modules', 'enrollments', 'progress', 'notifications', 'reviews',
@@ -46,33 +47,8 @@ function getStoredSession() {
 }
 
 function useCourses() {
-  const [courses, setCourses] = useState([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const loadCourses = async () => {
-      try {
-        const response = await fetch(`${API_BASE}/api/courses`, {
-          headers: { Accept: 'application/json' },
-        })
-
-        if (!response.ok) {
-          throw new Error('Failed to load courses')
-        }
-
-        const data = await response.json()
-        setCourses(Array.isArray(data) ? data : [])
-      } catch (error) {
-        console.error('Could not load courses from backend.', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadCourses()
-  }, [])
-
-  return { courses, loading }
+  const { courses = [], loading, error } = useApp()
+  return { courses, loading, error }
 }
 
 const navItems = [
@@ -93,7 +69,8 @@ const adminNavItems = [
 
 const facultyNavItems = [
   { label: 'Faculty Dashboard', to: '/faculty/dashboard' },
-  { label: 'Courses', to: '/browse-courses' },
+  { label: 'My Courses', to: '/faculty/courses' },
+  { label: 'Profile', to: '/faculty/profile' },
 ]
 
 const studentNavItems = [
@@ -120,9 +97,40 @@ function PageShell({ title, subtitle, children }) {
   )
 }
 
+function getStudentCourses(student, courses = [], enrollments = [], progress = []) {
+  return enrollments.filter((item) => String(item.student_id) === String(student?.id)).map((enrollment) => {
+    const course = courses.find((item) => String(item.id) === String(enrollment.course_id))
+    const courseProgress = progress.find((item) => String(item.student_id) === String(student?.id) && String(item.course_id) === String(enrollment.course_id))
+    return course ? { ...course, enrollmentStatus: enrollment.status, progress: Number(courseProgress?.progress_percentage || 0) } : null
+  }).filter(Boolean)
+}
+
+function getFacultyOverview({ user, faculty = [], course_faculty = [], courses = [], enrollments = [], progress = [] }) {
+  const profile = faculty.find((item) => String(item.user_id) === String(user?.id)) || {}
+  const assignedIds = new Set(course_faculty
+    .filter((item) => String(item.faculty_id) === String(profile.id))
+    .map((item) => String(item.course_id)))
+  const assignedCourses = courses.filter((course) => assignedIds.has(String(course.id)))
+  const assignedEnrollments = enrollments.filter((item) => assignedIds.has(String(item.course_id)))
+  const assignedProgress = progress.filter((item) => assignedIds.has(String(item.course_id)))
+
+  return {
+    faculty: { ...profile, name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() },
+    assignedCourses: assignedCourses.map((course) => ({
+      ...course,
+      students: enrollments.filter((item) => String(item.course_id) === String(course.id)).length,
+    })),
+    studentCount: new Set(assignedEnrollments.map((item) => item.student_id)).size,
+    courseCount: assignedCourses.length,
+    completion: assignedProgress.length
+      ? Math.round(assignedProgress.reduce((total, item) => total + Number(item.progress_percentage || 0), 0) / assignedProgress.length)
+      : 0,
+  }
+}
+
 function Header() {
   const navigate = useNavigate()
-  const session = getStoredSession()
+  const { session, signOut } = useApp()
   const role = String(session?.role || '')
   const items = role === '1'
     ? adminNavItems
@@ -133,7 +141,7 @@ function Header() {
         : navItems
 
   const handleLogout = () => {
-    localStorage.removeItem('cms_session')
+    signOut()
     navigate('/login')
   }
 
@@ -166,7 +174,7 @@ function Header() {
 }
 
 function RoleRoute({ allowedRoles, children }) {
-  const session = getStoredSession()
+  const { session, loading } = useApp()
   const navigate = useNavigate()
   const role = String(session?.role || '')
 
@@ -176,7 +184,7 @@ function RoleRoute({ allowedRoles, children }) {
     }
   }, [allowedRoles, navigate, role, session?.role])
 
-  return allowedRoles.includes(role) ? children : null
+  return loading ? <p role="status">Loading your account...</p> : allowedRoles.includes(role) ? children : null
 }
 
 function Footer() {
@@ -247,15 +255,9 @@ function HomePage() {
 
 function LoginPage() {
   const navigate = useNavigate()
+  const { signIn } = useApp()
   const [form, setForm] = useState({ email: '', password: '', role: '' })
   const [message, setMessage] = useState('')
-
-  useEffect(() => {
-    const session = getStoredSession()
-    if (session?.role) {
-      navigate(roleDestinations[Number(session.role)] || '/', { replace: true })
-    }
-  }, [navigate])
 
   const handleChange = (event) => {
     const { name, value } = event.target
@@ -267,27 +269,8 @@ function LoginPage() {
     setMessage('')
 
     try {
-      const response = await fetch(`${API_BASE}/api/login`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
-
-      const data = await response.json()
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed')
-      }
-
-      localStorage.setItem(
-        'cms_session',
-        JSON.stringify({
-          email: data.email,
-          role: String(data.role),
-        }),
-      )
-
-      navigate(roleDestinations[data.role] || '/')
+      const user = await signIn(form)
+      navigate(roleDestinations[user.role] || '/')
     } catch (error) {
       setMessage(error.message)
     }
@@ -326,6 +309,7 @@ function LoginPage() {
 
 function RegisterPage() {
   const navigate = useNavigate()
+  const { registerStudent } = useApp()
   const [form, setForm] = useState({
     first_name: '',
     last_name: '',
@@ -347,18 +331,8 @@ function RegisterPage() {
     setMessage('')
 
     try {
-      const response = await fetch(`${API_BASE}/api/register`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
-
-      const data = await response.json()
-      if (!response.ok) {
-        throw new Error(data.message || 'Registration failed')
-      }
-
+      if (form.password !== form.confirm_password) throw new Error('Passwords do not match.')
+      await registerStudent(form)
       setMessage('Registration successful. Redirecting to login...')
       setTimeout(() => navigate('/login'), 800)
     } catch (error) {
@@ -437,13 +411,13 @@ function ResetPasswordPage() {
 }
 
 function BrowseCoursesPage() {
-  const { courses, loading } = useCourses()
-  const session = getStoredSession()
+  const { courses, loading, error, session } = useApp()
   const isStudent = String(session?.role) === '3'
 
   return (
     <PageShell title="Available Courses" subtitle="Explore the programs and resources you can join.">
       {loading ? <p>Loading courses...</p> : null}
+      {error ? <p className="form-message error" role="alert">{error}</p> : null}
       <div className="card-grid">
         {courses.map((course) => (
           <div key={course.id} className="course-card">
@@ -477,6 +451,7 @@ function BrowseCoursesPage() {
 
 function EnrollButton({ courseId }) {
   const navigate = useNavigate()
+  const { enroll: enrollCourse } = useApp()
   const [message, setMessage] = useState('')
   const [enrolling, setEnrolling] = useState(false)
 
@@ -484,13 +459,7 @@ function EnrollButton({ courseId }) {
     setEnrolling(true)
     setMessage('')
     try {
-      const response = await fetch(`${API_BASE}/api/enroll/${courseId}`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { Accept: 'application/json' },
-      })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.message || 'Enrollment failed')
+      await enrollCourse(courseId)
       navigate('/student/dashboard')
     } catch (error) {
       setMessage(error.message)
@@ -549,53 +518,31 @@ function CourseDetailsPage() {
 
 function CourseContentPage() {
   const { id } = useParams()
-  const [content, setContent] = useState({ course: null, modules: [] })
-  const [loading, setLoading] = useState(true)
-  const [message, setMessage] = useState('')
-
-  useEffect(() => {
-    const loadContent = async () => {
-      try {
-        const response = await fetch(`${API_BASE}/api/courses/${id}/content`, {
-          credentials: 'include',
-          headers: { Accept: 'application/json' },
-        })
-        const data = await response.json()
-        if (!response.ok) {
-          throw new Error(data.message || 'Unable to load course content')
-        }
-        setContent(data)
-      } catch (error) {
-        setMessage(error.message)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadContent()
-  }, [id])
+  const { courses = [], modules = [], loading, error } = useApp()
+  const course = courses.find((item) => String(item.id) === id)
+  const courseModules = modules.filter((item) => String(item.course_id) === id)
 
   if (loading) {
     return <PageShell title="Course content" subtitle="Loading your learning materials..." />
   }
 
-  if (message || !content.course) {
-    return <PageShell title="Course content unavailable" subtitle={message || 'The selected course could not be found.'} />
+  if (error || !course) {
+    return <PageShell title="Course content unavailable" subtitle={error || 'The selected course could not be found.'} />
   }
 
   return (
-    <PageShell title={content.course.course_name} subtitle={`${content.course.course_code} · ${content.course.instructor}`}>
+    <PageShell title={course.course_name} subtitle={`${course.course_code} · ${course.instructor}`}>
       <div className="detail-card">
-        <p>{content.course.description}</p>
+        <p>{course.description}</p>
         <div className="detail-meta">
-          <span>Duration: {content.course.duration || 'Self-paced'}</span>
-          <span>Credits: {content.course.credits || 0}</span>
-          <span>{content.modules.length} modules</span>
+          <span>Duration: {course.duration || 'Self-paced'}</span>
+          <span>Credits: {course.credits || 0}</span>
+          <span>{courseModules.length} modules</span>
         </div>
       </div>
 
       <div className="card-grid">
-        {content.modules.map((module, index) => (
+        {courseModules.map((module, index) => (
           <article key={module.id} className="course-card">
             <span className="badge">Module {index + 1}</span>
             <h3>{module.title}</h3>
@@ -620,49 +567,36 @@ function CourseContentPage() {
 }
 
 function StudentDashboardPage() {
-  const [summary, setSummary] = useState({ enrolled_count: 0, total_courses: 0, student_courses: [] })
-  const [notifications, setNotifications] = useState([])
-
-  useEffect(() => {
-    const loadSummary = async () => {
-      try {
-        const response = await fetch(`${API_BASE}/api/student/dashboard`, {
-          credentials: 'include',
-          headers: { Accept: 'application/json' },
-        })
-        if (!response.ok) {
-          throw new Error('Failed to load student dashboard')
-        }
-        const data = await response.json()
-        setSummary(data)
-      } catch (error) {
-        console.error('Student dashboard fetch failed', error)
-      }
-    }
-
-    loadSummary()
-    fetch(`${API_BASE}/api/student/notifications`, { credentials: 'include', headers: { Accept: 'application/json' } })
-      .then((response) => response.ok ? response.json() : Promise.reject(new Error('Failed to load notifications')))
-      .then(setNotifications)
-      .catch((error) => console.error('Student notifications fetch failed', error))
-  }, [])
-
-  const activeCourses = summary.student_courses
+  const { courses = [], enrollments = [], progress = [], notifications = [], student, user, loading, error } = useApp()
+  const studentEnrollments = enrollments.filter((item) => String(item.student_id) === String(student?.id))
+  const activeCourses = getStudentCourses(student, courses, enrollments, progress)
+  const studentNotifications = notifications.filter((item) => String(item.student_id) === String(student?.id))
   const averageProgress = activeCourses.length
     ? Math.round(activeCourses.reduce((total, course) => total + (course.progress || 0), 0) / activeCourses.length)
     : 0
 
   return (
     <PageShell title="Student Dashboard" subtitle="Here is your current learning overview.">
+      {loading ? <p role="status">Loading student dashboard...</p> : null}
+      {error ? <p className="form-message error" role="alert">{error}</p> : null}
+      <div className="panel-card profile-panel">
+        <div className="section-head"><h3>Student Information</h3></div>
+        {student ? <div className="faculty-profile-grid">
+          <div><p className="profile-label">Name</p><h4>{student.first_name} {student.last_name}</h4></div>
+          <div><p className="profile-label">Email</p><h4>{user?.email || 'Not available'}</h4></div>
+          <div><p className="profile-label">Department</p><h4>{student.department || 'Not assigned'}</h4></div>
+          <div><p className="profile-label">Phone</p><h4>{student.phone || 'Not provided'}</h4></div>
+        </div> : <p className="empty-state">No student profile is linked to this account.</p>}
+      </div>
       <div className="dashboard-panel">
         <div className="stats-grid">
           <div className="stat-tile">
-            <strong>{summary.enrolled_count}</strong>
+            <strong>{studentEnrollments.length}</strong>
             <span>Enrolled courses</span>
           </div>
           <div className="stat-tile">
-            <strong>{activeCourses.length}</strong>
-            <span>Active courses</span>
+            <strong>{studentEnrollments.filter((item) => item.status === 'Enrolled').length}</strong>
+            <span>Currently enrolled</span>
           </div>
           <div className="stat-tile">
             <strong>{averageProgress}%</strong>
@@ -683,6 +617,7 @@ function StudentDashboardPage() {
               <span className="badge">{course.category || 'Learning path'}</span>
               <h3>{course.course_name || course.cname}</h3>
               <p>{course.instructor || 'Course access available'}</p>
+              <span className="badge">{course.enrollmentStatus}</span>
               <div className="progress-line">
                 <span style={{ width: `${course.progress || 0}%` }} />
               </div>
@@ -702,7 +637,7 @@ function StudentDashboardPage() {
         </div>
 
         <div className="notification-list dashboard-list">
-          {notifications.length ? notifications.slice(0, 3).map((item) => (
+          {studentNotifications.length ? studentNotifications.slice(0, 3).map((item) => (
             <div key={item.id} className="notification-item">
               <strong>{item.title}</strong>
               <p>{item.message}</p>
@@ -716,199 +651,203 @@ function StudentDashboardPage() {
 }
 
 function FacultyDashboardPage() {
-  const [dashboard, setDashboard] = useState({
-    student_count: 0,
-    course_count: 0,
-    completion: 0,
-    faculty: {},
-    assigned_courses: [],
-  })
-  const [moduleForm, setModuleForm] = useState({ title: '', description: '', notes: '', video_link: '', video: null, course_id: '' })
-  const [moduleMessage, setModuleMessage] = useState('')
-
-  useEffect(() => {
-    const loadDashboard = async () => {
-      try {
-        const response = await fetch(`${API_BASE}/api/faculty/dashboard`, {
-          credentials: 'include',
-          headers: { Accept: 'application/json' },
-        })
-        if (!response.ok) {
-          throw new Error('Failed to load faculty dashboard')
-        }
-        setDashboard(await response.json())
-      } catch (error) {
-        console.error('Faculty dashboard fetch failed', error)
-      }
-    }
-
-    loadDashboard()
-  }, [])
-
-  const handleModuleChange = (event) => {
-    const { name, value } = event.target
-    setModuleForm((current) => ({ ...current, [name]: name === 'video' ? event.target.files[0] : value }))
-  }
-
-  const handleModuleSubmit = async (event) => {
-    event.preventDefault()
-    setModuleMessage('')
-    try {
-      const formData = new FormData()
-      Object.entries(moduleForm).forEach(([name, value]) => {
-        if (value) formData.append(name, value)
-      })
-      const response = await fetch(`${API_BASE}/api/faculty/courses/${moduleForm.course_id}/modules`, {
-        method: 'POST',
-        credentials: 'include',
-        body: formData,
-      })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.message || 'Unable to save course content')
-      setModuleMessage('Module notes and video saved successfully.')
-      setModuleForm({ title: '', description: '', notes: '', video_link: '', video: null, course_id: moduleForm.course_id })
-    } catch (error) {
-      setModuleMessage(error.message)
-    }
-  }
+  const data = useApp()
+  const dashboard = getFacultyOverview(data)
 
   return (
-    <PageShell title="Faculty Dashboard" subtitle="Monitor assigned classes and student activity.">
+    <PageShell title="Faculty Dashboard" subtitle="Your teaching load and student activity at a glance.">
+      {data.loading ? <p role="status">Loading your faculty dashboard...</p> : null}
+      {data.error ? <p className="form-message error" role="alert">{data.error}</p> : null}
       <div className="dashboard-panel">
         <div className="stats-grid">
-          <div className="stat-tile">
-            <strong>{dashboard.student_count}</strong>
-            <span>Students</span>
-          </div>
-          <div className="stat-tile">
-            <strong>{dashboard.course_count}</strong>
-            <span>Assigned courses</span>
-          </div>
-          <div className="stat-tile">
-            <strong>{dashboard.completion}%</strong>
-            <span>Course completion</span>
-          </div>
+          <div className="stat-tile"><strong>{dashboard.studentCount}</strong><span>Students in your courses</span></div>
+          <div className="stat-tile"><strong>{dashboard.courseCount}</strong><span>Assigned courses</span></div>
+          <div className="stat-tile"><strong>{dashboard.completion}%</strong><span>Average course progress</span></div>
         </div>
       </div>
 
-      <div className="panel-card profile-panel">
-        <div className="section-head">
-          <h3>Faculty Profile</h3>
+      <div className="panel-card faculty-welcome">
+        <div>
+          <p className="eyebrow">Faculty workspace</p>
+          <h2>{dashboard.faculty.name || 'Faculty profile unavailable'}</h2>
+          <p>{dashboard.faculty.department || 'Department not assigned'} · {dashboard.faculty.specialization || 'Specialization not listed'}</p>
         </div>
-        <div className="faculty-profile-grid">
-          <div>
-            <p className="profile-label">Name</p>
-            <h4>{dashboard.faculty.name || 'Faculty profile unavailable'}</h4>
-          </div>
-          <div>
-            <p className="profile-label">Employee ID</p>
-            <h4>{dashboard.faculty.employee_id || 'Not assigned'}</h4>
-          </div>
-          <div>
-            <p className="profile-label">Department</p>
-            <h4>{dashboard.faculty.department || 'Not assigned'}</h4>
-          </div>
-          <div>
-            <p className="profile-label">Qualification</p>
-            <h4>{dashboard.faculty.qualification || 'Not assigned'}</h4>
-          </div>
-        </div>
+        <Link className="btn secondary" to="/faculty/profile">View profile</Link>
       </div>
 
       <div className="panel-card">
         <div className="section-head">
           <h3>Assigned Courses</h3>
+          <Link className="btn secondary small" to="/faculty/courses">All courses</Link>
         </div>
-        <div className="table-card compact-table">
-          <table>
-            <thead>
-              <tr>
-                <th>Course</th>
-                <th>Department</th>
-                <th>Students</th>
-              </tr>
-            </thead>
-            <tbody>
-              {dashboard.assigned_courses.length ? dashboard.assigned_courses.map((course) => (
-                <tr key={course.id}>
-                  <td>{course.course_name}</td>
-                  <td>{course.department}</td>
-                  <td>{course.students}</td>
-                </tr>
-              )) : (
-                <tr>
-                  <td colSpan="3" className="empty-state">No courses are assigned to this faculty account yet.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        <div className="card-grid">
+          {dashboard.assignedCourses.map((course) => (
+            <article key={course.id} className="course-card dashboard-card">
+              <span className="badge">{course.course_code || 'Course'}</span>
+              <h3>{course.course_name || course.cname}</h3>
+              <p>{course.duration || 'Self-paced'} · {course.students} students</p>
+              <Link className="btn primary" to={`/faculty/courses/${course.id}`}>Manage course</Link>
+            </article>
+          ))}
+          {!dashboard.assignedCourses.length ? <div className="empty-state">No courses are assigned to this faculty account yet.</div> : null}
+        </div>
+      </div>
+    </PageShell>
+  )
+}
+
+function FacultyCoursesPage() {
+  const dashboard = getFacultyOverview(useApp())
+
+  return (
+    <PageShell title="My Courses" subtitle="Open an assigned course to manage learning content and review its students.">
+      <div className="card-grid">
+        {dashboard.assignedCourses.map((course) => (
+          <article key={course.id} className="course-card">
+            <span className="badge">{course.course_code || 'Course'}</span>
+            <h3>{course.course_name || course.cname}</h3>
+            <p>{course.description || 'No course description available.'}</p>
+            <ul>
+              <li>Duration: {course.duration || 'Self-paced'}</li>
+              <li>Students: {course.students}</li>
+              <li>Department: {dashboard.faculty.department || 'Not assigned'}</li>
+            </ul>
+            <Link className="btn primary" to={`/faculty/courses/${course.id}`}>Open course workspace</Link>
+          </article>
+        ))}
+        {!dashboard.assignedCourses.length ? <div className="empty-state">No assigned courses are available.</div> : null}
+      </div>
+    </PageShell>
+  )
+}
+
+function FacultyCoursePage() {
+  const data = useApp()
+  const { id } = useParams()
+  const dashboard = getFacultyOverview(data)
+  const course = dashboard.assignedCourses.find((item) => String(item.id) === String(id))
+  const modules = (data.modules || [])
+    .filter((item) => String(item.course_id) === String(id))
+    .sort((left, right) => Number(left.module_number || 0) - Number(right.module_number || 0))
+  const enrollments = (data.enrollments || []).filter((item) => String(item.course_id) === String(id))
+  const [form, setForm] = useState({ title: '', description: '', notes: '', video_link: '' })
+  const [message, setMessage] = useState(null)
+  const [saving, setSaving] = useState(false)
+
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+    setMessage(null)
+    setSaving(true)
+    try {
+      const moduleNumber = modules.reduce((maximum, item) => Math.max(maximum, Number(item.module_number) || 0), 0) + 1
+      await request('modules', {
+        method: 'POST',
+        body: JSON.stringify({ ...form, course_id: Number(id), module_number: moduleNumber }),
+      })
+      await data.refresh()
+      setForm({ title: '', description: '', notes: '', video_link: '' })
+      setMessage({ type: 'success', text: 'Module published.' })
+    } catch (error) {
+      setMessage({ type: 'error', text: error.message })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const removeModule = async (moduleId) => {
+    if (!window.confirm('Remove this module from the course?')) return
+    try {
+      await request(`modules/${moduleId}`, { method: 'DELETE' })
+      await data.refresh()
+      setMessage({ type: 'success', text: 'Module removed.' })
+    } catch (error) {
+      setMessage({ type: 'error', text: error.message })
+    }
+  }
+
+  if (data.loading) return <PageShell title="Course workspace" subtitle="Loading course data..." />
+  if (!course) return <PageShell title="Course unavailable" subtitle="This course is not assigned to your faculty account."><Link className="btn secondary" to="/faculty/courses">Back to my courses</Link></PageShell>
+
+  return (
+    <PageShell title={course.course_name || course.cname} subtitle={`${course.course_code || 'Course'} · ${course.department || dashboard.faculty.department}`}>
+      {data.error ? <p className="form-message error" role="alert">{data.error}</p> : null}
+      {message ? <p className={`form-message ${message.type}`} role="status">{message.text}</p> : null}
+      <div className="course-workspace-summary">
+        <div><strong>{enrollments.length}</strong><span>Enrolled students</span></div>
+        <div><strong>{modules.length}</strong><span>Published modules</span></div>
+        <div><strong>{course.duration || 'Self-paced'}</strong><span>Course duration</span></div>
+        <Link className="btn secondary" to="/faculty/courses">Back to my courses</Link>
+      </div>
+
+      <div className="panel-card">
+        <div className="section-head"><h3>Course Content</h3></div>
+        <form className="form-card two-col faculty-module-form" onSubmit={handleSubmit}>
+          <label>Module title<input name="title" value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} required /></label>
+          <label>Video URL<input type="url" name="video_link" value={form.video_link} onChange={(event) => setForm((current) => ({ ...current, video_link: event.target.value }))} placeholder="https://..." /></label>
+          <label className="full-width">Description<textarea name="description" value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} rows="3" /></label>
+          <label className="full-width">Student notes<textarea name="notes" value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} rows="4" /></label>
+          <button className="btn primary full" type="submit" disabled={saving}>{saving ? 'Publishing...' : 'Publish module'}</button>
+        </form>
+        <div className="faculty-module-list">
+          {modules.map((module) => (
+            <article className="faculty-module-item" key={module.id}>
+              <div><span className="badge">Module {module.module_number}</span><h4>{module.title}</h4><p>{module.description}</p>{module.notes ? <p className="module-notes">{module.notes}</p> : null}</div>
+              <div className="faculty-module-actions">
+                {module.video_link ? <a href={module.video_link} target="_blank" rel="noreferrer">Preview video</a> : null}
+                <button className="btn danger small" type="button" onClick={() => removeModule(module.id)}>Remove</button>
+              </div>
+            </article>
+          ))}
+          {!modules.length ? <div className="empty-state">No modules published for this course yet.</div> : null}
         </div>
       </div>
 
       <div className="panel-card">
-        <div className="section-head">
-          <h3>Add Course Content</h3>
+        <div className="section-head"><h3>Student Roster</h3></div>
+        <div className="table-card compact-table">
+          <table>
+            <thead><tr><th>Student</th><th>Email</th><th>Enrolled</th><th>Progress</th></tr></thead>
+            <tbody>
+              {enrollments.map((enrollment) => {
+                const student = (data.students || []).find((item) => String(item.id) === String(enrollment.student_id))
+                const user = (data.users || []).find((item) => String(item.id) === String(student?.user_id))
+                const courseProgress = (data.progress || []).find((item) => String(item.student_id) === String(enrollment.student_id) && String(item.course_id) === String(id))
+                return <tr key={enrollment.id}><td>{student ? `${student.first_name} ${student.last_name}` : `Student #${enrollment.student_id}`}</td><td>{user?.email || 'Not available'}</td><td>{enrollment.enrollment_date ? new Date(enrollment.enrollment_date).toLocaleDateString() : 'Not recorded'}</td><td>{Number(courseProgress?.progress_percentage || 0)}%</td></tr>
+              })}
+              {!enrollments.length ? <tr><td colSpan="4" className="empty-state">No students are enrolled in this course yet.</td></tr> : null}
+            </tbody>
+          </table>
         </div>
-        {dashboard.assigned_courses.length ? (
-          <form className="form-card two-col" onSubmit={handleModuleSubmit}>
-            <label>
-              Course
-              <select name="course_id" value={moduleForm.course_id} onChange={handleModuleChange} required>
-                <option value="" disabled>Select assigned course</option>
-                {dashboard.assigned_courses.map((course) => <option key={course.id} value={course.id}>{course.course_name}</option>)}
-              </select>
-            </label>
-            <label>
-              Module title
-              <input name="title" value={moduleForm.title} onChange={handleModuleChange} placeholder="Module title" required />
-            </label>
-            <label className="full-width">
-              Description
-              <textarea name="description" value={moduleForm.description} onChange={handleModuleChange} rows="3" placeholder="What will students learn?" />
-            </label>
-            <label className="full-width">
-              Notes
-              <textarea name="notes" value={moduleForm.notes} onChange={handleModuleChange} rows="3" placeholder="Study notes for students" />
-            </label>
-            <label className="full-width">
-              Video URL
-              <input type="url" name="video_link" value={moduleForm.video_link} onChange={handleModuleChange} placeholder="https://..." />
-            </label>
-            <label className="full-width">
-              Upload video
-              <input type="file" name="video" accept="video/mp4,video/webm,video/quicktime,video/ogg" onChange={handleModuleChange} />
-            </label>
-            {moduleMessage ? <p className="form-message success full-width">{moduleMessage}</p> : null}
-            <button className="btn primary full" type="submit">Publish Content</button>
-          </form>
-        ) : <p className="empty-state">You need an assigned course before you can publish notes or videos.</p>}
+      </div>
+    </PageShell>
+  )
+}
+
+function FacultyProfilePage() {
+  const { user, faculty = [], loading } = useApp()
+  const profile = faculty.find((item) => String(item.user_id) === String(user?.id))
+
+  if (loading) return <PageShell title="Faculty Profile" subtitle="Loading your profile..." />
+  if (!profile) return <PageShell title="Faculty Profile" subtitle="No faculty profile is linked to this account." />
+
+  return (
+    <PageShell title="Faculty Profile" subtitle="Your institutional and professional details.">
+      <div className="panel-card faculty-profile-grid">
+        <div><p className="profile-label">Name</p><h4>{profile.first_name} {profile.last_name}</h4></div>
+        <div><p className="profile-label">Email</p><h4>{user?.email || 'Not available'}</h4></div>
+        <div><p className="profile-label">Employee ID</p><h4>{profile.employee_id || 'Not assigned'}</h4></div>
+        <div><p className="profile-label">Department</p><h4>{profile.department || 'Not assigned'}</h4></div>
+        <div><p className="profile-label">Qualification</p><h4>{profile.qualification || 'Not listed'}</h4></div>
+        <div><p className="profile-label">Specialization</p><h4>{profile.specialization || 'Not listed'}</h4></div>
+        <div><p className="profile-label">Phone</p><h4>{profile.phone || 'Not listed'}</h4></div>
       </div>
     </PageShell>
   )
 }
 
 function AdminDashboardPage() {
-  const [summary, setSummary] = useState({ total_students: 0, total_faculty: 0, total_courses: 0, total_enrollments: 0 })
-
-  useEffect(() => {
-    const loadSummary = async () => {
-      try {
-        const response = await fetch(`${API_BASE}/api/admin/summary`, {
-          credentials: 'include',
-          headers: { Accept: 'application/json' },
-        })
-        if (!response.ok) {
-          throw new Error('Failed to load admin summary')
-        }
-        const data = await response.json()
-        setSummary(data)
-      } catch (error) {
-        console.error('Admin summary fetch failed', error)
-      }
-    }
-
-    loadSummary()
-  }, [])
+  const { students = [], faculty = [], courses = [], enrollments = [] } = useApp()
+  const summary = { total_students: students.length, total_faculty: faculty.length, total_courses: courses.length, total_enrollments: enrollments.length }
 
   const quickActions = [
     { label: 'Database', to: '/admin/database', description: 'View and manage live records' },
@@ -961,7 +900,7 @@ function AdminDashboardPage() {
 }
 
 function AddFacultyPage() {
-  const session = getStoredSession()
+  const { session, refresh } = useApp()
   const isAdmin = session?.role === '1'
   const [form, setForm] = useState({ first_name: '', last_name: '', email: '', password: '', phone: '', department: '', qualification: '', specialization: '', employee_id: '' })
   const [message, setMessage] = useState('')
@@ -975,14 +914,15 @@ function AddFacultyPage() {
     event.preventDefault()
     setMessage('')
     try {
-      const response = await fetch(`${API_BASE}/api/admin/faculty`, {
+      const user = await request('users', {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ email: form.email, password: form.password, role: 2 }),
       })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.message || 'Unable to create faculty account')
+      await request('faculty', {
+        method: 'POST',
+        body: JSON.stringify({ ...form, user_id: user.id, blacklisted: 'N' }),
+      })
+      await refresh()
       setMessage('Faculty account created successfully.')
       setForm({ first_name: '', last_name: '', email: '', password: '', phone: '', department: '', qualification: '', specialization: '', employee_id: '' })
     } catch (error) {
@@ -1046,54 +986,28 @@ function AddFacultyPage() {
 }
 
 function StudentsPage() {
-  const [studentsList, setStudentsList] = useState([])
-  const [facultyList, setFacultyList] = useState([])
+  const { users = [], students = [], faculty = [], refresh } = useApp()
   const [message, setMessage] = useState('')
-
-  const fetchPeople = async () => {
-    const [studentsResponse, facultyResponse] = await Promise.all([
-      fetch(`${API_BASE}/api/admin/students`, { credentials: 'include' }),
-      fetch(`${API_BASE}/api/admin/faculty`, { credentials: 'include' }),
-    ])
-    if (!studentsResponse.ok || !facultyResponse.ok) throw new Error('Unable to load people')
-    return Promise.all([studentsResponse.json(), facultyResponse.json()])
-  }
-
-  useEffect(() => {
-    let active = true
-    fetchPeople()
-      .then(([loadedStudents, loadedFaculty]) => {
-        if (active) {
-          setStudentsList(loadedStudents)
-          setFacultyList(loadedFaculty)
-        }
-      })
-      .catch((error) => {
-        if (active) setMessage(error.message)
-      })
-    return () => { active = false }
-  }, [])
+  const getPerson = (person) => ({
+    ...person,
+    name: `${person.first_name} ${person.last_name}`,
+    email: users.find((user) => String(user.id) === String(person.user_id))?.email || '',
+    blacklisted: person.blacklisted === 'Y' || person.blacklisted === true,
+    status: person.blacklisted === 'Y' || person.blacklisted === true ? 'Blacklisted' : 'Active',
+  })
 
   const updateStatus = async (type, id, blacklisted) => {
-    const response = await fetch(`${API_BASE}/api/admin/${type}/${id}/blacklist`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ blacklisted }),
+    await request(`${type}/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ blacklisted: blacklisted ? 'Y' : 'N' }),
     })
-    if (!response.ok) throw new Error('Unable to update account status')
-    const [loadedStudents, loadedFaculty] = await fetchPeople()
-    setStudentsList(loadedStudents)
-    setFacultyList(loadedFaculty)
+    await refresh()
   }
 
   const removePerson = async (type, id) => {
     if (!window.confirm('Remove this account permanently?')) return
-    const response = await fetch(`${API_BASE}/api/admin/${type}/${id}`, { method: 'DELETE', credentials: 'include' })
-    if (!response.ok) throw new Error('Unable to remove account')
-    const [loadedStudents, loadedFaculty] = await fetchPeople()
-    setStudentsList(loadedStudents)
-    setFacultyList(loadedFaculty)
+    await request(`${type}/${id}`, { method: 'DELETE' })
+    await refresh()
   }
 
   const runAction = (action) => action().catch((error) => setMessage(error.message))
@@ -1114,14 +1028,16 @@ function StudentsPage() {
               </tr>
             </thead>
             <tbody>
-              {studentsList.map((student) => (
+              {students.map((rawStudent) => {
+                const student = getPerson(rawStudent)
+                return (
                 <tr key={student.id}>
                   <td>{student.name}</td><td>{student.email}</td>
                   <td>{student.department}</td>
                   <td>{student.status}</td>
                   <td><button className="btn secondary small" type="button" onClick={() => runAction(() => updateStatus('students', student.id, !student.blacklisted))}>{student.blacklisted ? 'Restore' : 'Blacklist'}</button> <button className="btn secondary small" type="button" onClick={() => runAction(() => removePerson('students', student.id))}>Remove</button></td>
                 </tr>
-              ))}
+              )})}
             </tbody>
           </table>
         </div>
@@ -1130,7 +1046,7 @@ function StudentsPage() {
         <div className="section-head"><h3>Faculty</h3><Link className="btn primary small" to="/add-faculty">Add Faculty</Link></div>
         <div className="table-card compact-table">
           <table><thead><tr><th>Name</th><th>Email</th><th>Department</th><th>Status</th><th>Actions</th></tr></thead>
-            <tbody>{facultyList.map((faculty) => <tr key={faculty.id}><td>{faculty.name}</td><td>{faculty.email}</td><td>{faculty.department}</td><td>{faculty.status}</td><td><button className="btn secondary small" type="button" onClick={() => runAction(() => updateStatus('faculty', faculty.id, !faculty.blacklisted))}>{faculty.blacklisted ? 'Restore' : 'Blacklist'}</button> <button className="btn secondary small" type="button" onClick={() => runAction(() => removePerson('faculty', faculty.id))}>Remove</button></td></tr>)}</tbody>
+            <tbody>{faculty.map((rawFaculty) => { const member = getPerson(rawFaculty); return <tr key={member.id}><td>{member.name}</td><td>{member.email}</td><td>{member.department}</td><td>{member.status}</td><td><button className="btn secondary small" type="button" onClick={() => runAction(() => updateStatus('faculty', member.id, !member.blacklisted))}>{member.blacklisted ? 'Restore' : 'Blacklist'}</button> <button className="btn secondary small" type="button" onClick={() => runAction(() => removePerson('faculty', member.id))}>Remove</button></td></tr> })}</tbody>
           </table>
         </div>
       </div>
@@ -1139,18 +1055,10 @@ function StudentsPage() {
 }
 
 function AddCoursePage() {
-  const session = getStoredSession()
+  const { session, faculty = [], refresh } = useApp()
   const isAdmin = session?.role === '1'
-  const [facultyList, setFacultyList] = useState([])
   const [message, setMessage] = useState('')
   const [form, setForm] = useState({ course_name: '', course_code: '', instructor: '', duration: '', credits: '', category: '', faculty_id: '', description: '' })
-
-  useEffect(() => {
-    fetch(`${API_BASE}/api/admin/faculty`, { credentials: 'include' })
-      .then((response) => response.ok ? response.json() : Promise.reject(new Error('Unable to load faculty list')))
-      .then(setFacultyList)
-      .catch((error) => setMessage(error.message))
-  }, [])
 
   const handleChange = (event) => {
     const { name, value } = event.target
@@ -1161,14 +1069,12 @@ function AddCoursePage() {
     event.preventDefault()
     setMessage('')
     try {
-      const response = await fetch(`${API_BASE}/api/admin/courses`, {
+      const course = await request('courses', {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, credits: Number(form.credits || 0) }),
       })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.message || 'Unable to create course')
+      if (form.faculty_id) await request('course_faculty', { method: 'POST', body: JSON.stringify({ course_id: course.id, faculty_id: Number(form.faculty_id) }) })
+      await refresh()
       setMessage('Course created and faculty assignment saved.')
       setForm({ course_name: '', course_code: '', instructor: '', duration: '', credits: '', category: '', faculty_id: '', description: '' })
     } catch (error) {
@@ -1211,8 +1117,8 @@ function AddCoursePage() {
             Faculty
             <select name="faculty_id" value={form.faculty_id} onChange={handleChange}>
               <option value="" disabled>Select faculty</option>
-              {facultyList.map((faculty) => (
-                <option key={faculty.id} value={faculty.id}>{faculty.name}</option>
+              {faculty.map((member) => (
+                <option key={member.id} value={member.id}>{member.first_name} {member.last_name}</option>
               ))}
             </select>
           </label>
@@ -1279,20 +1185,13 @@ function EditCoursePage() {
 }
 
 function MyCoursesPage() {
-  const [courses, setCourses] = useState([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    fetch(`${API_BASE}/api/student/dashboard`, { credentials: 'include', headers: { Accept: 'application/json' } })
-      .then((response) => response.ok ? response.json() : Promise.reject(new Error('Unable to load your courses')))
-      .then((data) => setCourses(data.student_courses || []))
-      .catch((error) => console.error('My courses fetch failed', error))
-      .finally(() => setLoading(false))
-  }, [])
+  const { courses: allCourses = [], enrollments = [], progress = [], student, loading, error } = useApp()
+  const courses = getStudentCourses(student, allCourses, enrollments, progress)
 
   return (
     <PageShell title="My Courses" subtitle="Your active course enrollments.">
       {loading ? <p>Loading your courses...</p> : null}
+      {error ? <p className="form-message error" role="alert">{error}</p> : null}
       <div className="card-grid">
         {!loading && courses.length === 0 ? <div className="empty-state">You have not registered for any courses yet.</div> : null}
         {courses.map((course) => (
@@ -1311,14 +1210,8 @@ function MyCoursesPage() {
 }
 
 function NotificationsPage() {
-  const [notifications, setNotifications] = useState([])
-
-  useEffect(() => {
-    fetch(`${API_BASE}/api/student/notifications`, { credentials: 'include', headers: { Accept: 'application/json' } })
-      .then((response) => response.ok ? response.json() : Promise.reject(new Error('Unable to load notifications')))
-      .then(setNotifications)
-      .catch((error) => console.error('Notifications fetch failed', error))
-  }, [])
+  const { notifications: allNotifications = [], student } = useApp()
+  const notifications = allNotifications.filter((item) => String(item.student_id) === String(student?.id))
 
   return (
     <PageShell title="Notifications" subtitle="Recent updates from your courses and instructors.">
@@ -1336,14 +1229,8 @@ function NotificationsPage() {
 }
 
 function ProgressPage() {
-  const [courses, setCourses] = useState([])
-
-  useEffect(() => {
-    fetch(`${API_BASE}/api/student/dashboard`, { credentials: 'include', headers: { Accept: 'application/json' } })
-      .then((response) => response.ok ? response.json() : Promise.reject(new Error('Unable to load progress')))
-      .then((data) => setCourses(data.student_courses || []))
-      .catch((error) => console.error('Progress fetch failed', error))
-  }, [])
+  const { courses: allCourses = [], enrollments = [], progress = [], student } = useApp()
+  const courses = getStudentCourses(student, allCourses, enrollments, progress)
 
   return (
     <PageShell title="Progress" subtitle="See how far you have advanced across your enrolled programs.">
@@ -1372,14 +1259,8 @@ function ProgressPage() {
 }
 
 function CertificatePage() {
-  const [courses, setCourses] = useState([])
-
-  useEffect(() => {
-    fetch(`${API_BASE}/api/student/dashboard`, { credentials: 'include', headers: { Accept: 'application/json' } })
-      .then((response) => response.ok ? response.json() : Promise.reject(new Error('Unable to load certificates')))
-      .then((data) => setCourses((data.student_courses || []).filter((course) => course.progress >= 100)))
-      .catch((error) => console.error('Certificate fetch failed', error))
-  }, [])
+  const { courses: allCourses = [], enrollments = [], progress = [], student } = useApp()
+  const courses = getStudentCourses(student, allCourses, enrollments, progress).filter((course) => course.progress >= 100)
 
   return (
     <PageShell title="Certificate" subtitle="Your achievement record is ready.">
@@ -1421,27 +1302,13 @@ function ContactPage() {
 }
 
 function ProfilePage() {
-  const [profile, setProfile] = useState({ full_name: '', email: '', phone: '', department: '' })
-
-  useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const response = await fetch(`${API_BASE}/api/profile`, {
-          credentials: 'include',
-          headers: { Accept: 'application/json' },
-        })
-        if (!response.ok) {
-          throw new Error('Failed to load profile')
-        }
-        const data = await response.json()
-        setProfile(data)
-      } catch (error) {
-        console.error('Profile fetch failed', error)
-      }
-    }
-
-    loadProfile()
-  }, [])
+  const { student, user } = useApp()
+  const profile = {
+    full_name: [student?.first_name, student?.last_name].filter(Boolean).join(' '),
+    email: user?.email || '',
+    phone: student?.phone || '',
+    department: student?.department || '',
+  }
 
   return (
     <PageShell title="Profile" subtitle="Update your student details and academic preferences.">
@@ -1469,14 +1336,8 @@ function ProfilePage() {
 }
 
 function ReportsPage() {
-  const [summary, setSummary] = useState({ total_students: 0, total_courses: 0, total_enrollments: 0 })
-
-  useEffect(() => {
-    fetch(`${API_BASE}/api/admin/summary`, { credentials: 'include', headers: { Accept: 'application/json' } })
-      .then((response) => response.ok ? response.json() : Promise.reject(new Error('Unable to load reports')))
-      .then(setSummary)
-      .catch((error) => console.error('Reports fetch failed', error))
-  }, [])
+  const { students = [], courses = [], enrollments = [] } = useApp()
+  const summary = { total_students: students.length, total_courses: courses.length, total_enrollments: enrollments.length }
 
   return (
     <PageShell title="Reports" subtitle="Institutional metrics and course performance.">
@@ -1533,24 +1394,10 @@ function AdminDatabasePage() {
     let active = true
     const loadRecords = async () => {
       try {
-        const [recordsResponse, statusResponse] = await Promise.all([
-          fetch(`${API_BASE}/api/admin/database/${collection}`, {
-            credentials: 'include',
-            headers: { Accept: 'application/json' },
-          }),
-          fetch(`${API_BASE}/api/admin/database/status`, {
-            credentials: 'include',
-            headers: { Accept: 'application/json' },
-          }),
-        ])
-        const [recordsData, statusData] = await Promise.all([
-          recordsResponse.json(),
-          statusResponse.json(),
-        ])
-        if (!recordsResponse.ok) throw new Error(recordsData.message || 'Unable to load records')
+        const recordsData = await request(collection)
         if (!active) return
         setRecords(Array.isArray(recordsData) ? recordsData : [])
-        setMirrorStatus(statusData)
+        setMirrorStatus({ ok: true })
         setRefreshedAt(new Date().toLocaleTimeString())
         setError('')
       } catch (loadError) {
@@ -1569,17 +1416,9 @@ function AdminDatabasePage() {
   const refreshRecords = async () => {
     setLoading(true)
     try {
-      const [recordsResponse, statusResponse] = await Promise.all([
-        fetch(`${API_BASE}/api/admin/database/${collection}`, { credentials: 'include' }),
-        fetch(`${API_BASE}/api/admin/database/status`, { credentials: 'include' }),
-      ])
-      const [recordsData, statusData] = await Promise.all([
-        recordsResponse.json(),
-        statusResponse.json(),
-      ])
-      if (!recordsResponse.ok) throw new Error(recordsData.message || 'Unable to load records')
+      const recordsData = await request(collection)
       setRecords(Array.isArray(recordsData) ? recordsData : [])
-      setMirrorStatus(statusData)
+      setMirrorStatus({ ok: true })
       setRefreshedAt(new Date().toLocaleTimeString())
       setError('')
     } catch (loadError) {
@@ -1617,18 +1456,11 @@ function AdminDatabasePage() {
     }
 
     const isCreate = editor.mode === 'create'
-    const url = isCreate
-      ? `${API_BASE}/api/admin/database/${collection}`
-      : `${API_BASE}/api/admin/database/${collection}/${editor.id}`
     try {
-      const response = await fetch(url, {
+      await request(isCreate ? collection : `${collection}/${editor.id}`, {
         method: isCreate ? 'POST' : 'PATCH',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.message || 'Unable to save record')
       setEditor(null)
       setNotice(`${isCreate ? 'Record added' : 'Record updated'} in ${collection}.`)
       setError('')
@@ -1641,12 +1473,9 @@ function AdminDatabasePage() {
   const deleteRecord = async (record) => {
     if (!window.confirm(`Delete ${collection} record ${record.id}?`)) return
     try {
-      const response = await fetch(`${API_BASE}/api/admin/database/${collection}/${record.id}`, {
+      await request(`${collection}/${record.id}`, {
         method: 'DELETE',
-        credentials: 'include',
       })
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.message || 'Unable to delete record')
       setNotice(`Record ${record.id} deleted from ${collection}.`)
       setError('')
       await refreshRecords()
@@ -1656,7 +1485,7 @@ function AdminDatabasePage() {
   }
 
   return (
-    <PageShell title="Database" subtitle="Live application records with a JSON mirror.">
+    <PageShell title="Database" subtitle="Manage records stored by the local Express backend.">
       <section className="panel-card database-panel">
         <div className="database-toolbar">
           <label>
@@ -1672,7 +1501,7 @@ function AdminDatabasePage() {
             <button className="btn primary" type="button" onClick={beginCreate}>Add record</button>
           </div>
           <div className={`mirror-status ${mirrorStatus?.ok ? 'is-synced' : 'has-error'}`} role="status">
-            {mirrorStatus?.ok ? 'JSON mirror synced' : mirrorStatus?.error ? `Mirror error: ${mirrorStatus.error}` : 'JSON mirror status unavailable'}
+            {mirrorStatus?.ok ? 'Connected to backend API' : mirrorStatus?.error ? `API error: ${mirrorStatus.error}` : 'Backend status unavailable'}
             {refreshedAt ? <small>Last refreshed {refreshedAt}</small> : null}
           </div>
         </div>
@@ -1746,6 +1575,9 @@ function App() {
             <Route path="/courses/:id/content" element={<RoleRoute allowedRoles={['2', '3']}><CourseContentPage /></RoleRoute>} />
             <Route path="/student/dashboard" element={<RoleRoute allowedRoles={['3']}><StudentDashboardPage /></RoleRoute>} />
             <Route path="/faculty/dashboard" element={<RoleRoute allowedRoles={['2']}><FacultyDashboardPage /></RoleRoute>} />
+            <Route path="/faculty/courses" element={<RoleRoute allowedRoles={['2']}><FacultyCoursesPage /></RoleRoute>} />
+            <Route path="/faculty/courses/:id" element={<RoleRoute allowedRoles={['2']}><FacultyCoursePage /></RoleRoute>} />
+            <Route path="/faculty/profile" element={<RoleRoute allowedRoles={['2']}><FacultyProfilePage /></RoleRoute>} />
             <Route path="/admin/dashboard" element={<RoleRoute allowedRoles={['1']}><AdminDashboardPage /></RoleRoute>} />
             <Route path="/admin/database" element={<RoleRoute allowedRoles={['1']}><AdminDatabasePage /></RoleRoute>} />
             <Route path="/add-faculty" element={<RoleRoute allowedRoles={['1']}><AddFacultyPage /></RoleRoute>} />

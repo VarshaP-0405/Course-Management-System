@@ -3,18 +3,21 @@
     {
       "id": 1,
       "email": "courseadmin123@gmail.com",
+      "password": "demo123",
       "role": 1,
       "created_at": "2026-09-21T04:18:00.476713"
     },
     {
       "id": 2,
       "email": "varsha@gmail.com",
+      "password": "demo123",
       "role": 3,
       "created_at": "2026-09-21T04:23:32.153689"
     },
     {
       "id": 3,
       "email": "thangam@gmail.com",
+      "password": "demo123",
       "role": 2,
       "created_at": "2026-09-21T09:05:15.035156"
     }
@@ -92,10 +95,41 @@
       "description": "This Course is based on Agentic AI, contains about what is AI,AgenticAI and its workflow, includes hands-on practice also"
     }
   ],
-  "course_faculty": [],
+  "course_faculty": [
+    {
+      "id": 1,
+      "course_id": 3,
+      "faculty_id": 1
+    }
+  ],
   "modules": [],
-  "enrollments": [],
-  "progress": [],
-  "notifications": [],
+  "enrollments": [
+    {
+      "id": 1,
+      "student_id": 1,
+      "course_id": 3,
+      "status": "Enrolled",
+      "enrollment_date": "2026-09-25T09:00:00.000Z"
+    }
+  ],
+  "progress": [
+    {
+      "id": 1,
+      "student_id": 1,
+      "course_id": 3,
+      "completed_modules": 1,
+      "total_modules": 3,
+      "progress_percentage": 33
+    }
+  ],
+  "notifications": [
+    {
+      "id": 1,
+      "student_id": 1,
+      "title": "Welcome to CourseHub",
+      "message": "Your Agentic AI course is ready to continue.",
+      "is_read": false
+    }
+  ],
   "reviews": []
 }

@@ -1,16 +1,23 @@
-# React + Vite
+# CourseHub React App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+The frontend uses React Context for authentication, student/course data, and enrollments. It reads and writes records through the Express backend, which persists the local dataset in `mockapi/db.json`.
 
-Currently, two official plugins are available:
+Start the backend in one terminal:
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```bash
+cd /workspaces/Course-Management-System/backend
+npm install
+npm start
+```
 
-## React Compiler
+Start the frontend in another terminal:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+cd frontend-react
+npm install
+npm run dev
+```
 
-## Expanding the ESLint configuration
+The frontend is at `http://localhost:5173`; Express listens at `http://localhost:3002` and is reached through Vite's same-origin `/mock-api` proxy. Set `VITE_API_BASE` to override the API URL.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Seeded demo users all use password `demo123`. See [mockapi/README.md](../mockapi/README.md) for account emails and limitations.

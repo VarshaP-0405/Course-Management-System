@@ -1,6 +1,6 @@
 # Course Management System
 
-A full-stack student course management and learning progress tracking system built with Flask, SQLAlchemy, and a React frontend using client-side routing.
+A course management and learning progress application built with React, Context API, and a modular Express backend backed by a writable JSON data file. No SQL database is required.
 
 ## Project Overview
 This project helps universities and training institutions manage student accounts, course information, enrollments, progress tracking, and admin operations from a single platform.
@@ -29,37 +29,38 @@ Admins can:
 - Learning progress tracking
 - Notifications and certificate pages
 - Responsive React-based frontend with routing
-- Flask REST API and database models
-- Password hashing and secure admin setup
+- Context-managed authentication, course, enrollment, and student state
+- JSON Server collections for local API-backed data
 
 ## Tech Stack
 - Frontend: React, Vite, React Router
-- Backend: Python, Flask
-- Database: SQLite (via Flask-SQLAlchemy)
-- Authentication: Flask session-based auth + password hashing
-- Security: Werkzeug password hashing
+- Backend: Node.js and Express (`backend/src`)
+- Local data store: JSON file (`mockapi/db.json`)
+- State: React Context API
+- Authentication: local demo login backed by mock user records
 - Version control: Git and GitHub
 
 ## Project Structure
 
 ```text
 Course-Management-System/
+├── mockapi/
+│   ├── db.json
+│   └── package.json
 ├── backend/
-│   ├── app.py
-│   ├── models.py
-│   ├── routes.py
-│   ├── requirements.txt
-│   └── __init__.py
+│   ├── src/
+│   │   ├── config/
+│   │   ├── controllers/
+│   │   ├── middleware/
+│   │   ├── routes/
+│   │   └── services/
+│   └── package.json
 ├── frontend-react/
 │   ├── src/
 │   ├── package.json
 │   ├── vite.config.js
 │   └── eslint.config.js
-├── tests/
-│   └── test_routes.py
-├── requirements.txt
 ├── README.md
-├── coursevenv/
 └── frontend/
     └── legacy static pages
 ```
@@ -67,12 +68,12 @@ Course-Management-System/
 ## React Routing Setup
 The React frontend uses React Router for navigation between pages.
 
-The actual flow matches the original CMS behavior:
+The React app reads users, students, courses, enrollments, modules, and progress from JSON Server. Context stores the signed-in user and fetched collections so dashboard data updates when mock records change.
 
 1. User opens the login page
 2. User enters email, password, and role
-3. The app posts to the backend login API
-4. The backend verifies the credentials and role
+3. The app checks the mock user collection for matching credentials and role
+4. The session is stored centrally and persisted in local storage
 5. React redirects the user to their dashboard:
    - Admin -> /admin/dashboard
    - Faculty -> /faculty/dashboard
@@ -96,20 +97,18 @@ Example route structure:
 This means the user does not reload the page and each role is redirected automatically to the correct dashboard after login.
 
 ## Prerequisites
-- Python 3.10+
 - Node.js 18+
 - npm
-- Git
 
 ## Setup Instructions
-From the project root, install backend dependencies:
+Install the backend dependencies:
 
 ```bash
-cd /workspaces/Course-Management-System
-python3 -m pip install -r backend/requirements.txt
+cd /workspaces/Course-Management-System/backend
+npm install
 ```
 
-Install React frontend dependencies:
+Install React dependencies:
 
 ```bash
 cd /workspaces/Course-Management-System/frontend-react
@@ -117,38 +116,43 @@ npm install
 ```
 
 ## Run the Application
-Start the Flask backend:
+First install dependencies once by following Setup Instructions. Then open two terminals. Run the backend in terminal 1:
 
 ```bash
-cd /workspaces/Course-Management-System
-python3 backend/app.py
+cd /workspaces/Course-Management-System/backend
+npm start
 ```
 
-Start the React frontend in a second terminal:
+Run the React app in terminal 2:
 
 ```bash
 cd /workspaces/Course-Management-System/frontend-react
 npm run dev
 ```
 
-Open the frontend in the browser:
+Open the frontend URL printed by Vite, normally:
 
 ```text
 http://localhost:5173
 ```
 
+If port 5173 is already in use, Vite will choose another port and print that URL in terminal 2.
+
 The backend API is served at:
 
 ```text
-http://localhost:5001
+http://localhost:3002
 ```
 
-## Default Admin Account
-The app creates a default admin automatically when it starts.
+Health endpoints are available at `GET /` and `GET /api/health`. The backend exposes the app's collection routes and `POST /api/auth/login`.
+
+## Demo Accounts
+All seeded accounts use the local mock password `demo123`.
 
 ```text
-Email: courseadmin123@gmail.com
-Password: courseadmin123
+Student: varsha@gmail.com
+Faculty: thangam@gmail.com
+Admin: courseadmin123@gmail.com
 ```
 
 ## Login Flow by Role
@@ -173,16 +177,12 @@ The React app uses a protected route check to stop users from visiting a dashboa
 - Notifications: /notifications
 - Progress: /progress
 - Certificate: /certificate
+- Faculty Courses: /faculty/courses
+- Faculty Course Workspace: /faculty/courses/:id
+- Faculty Profile: /faculty/profile
 
 ## Testing
-Run the backend route tests with:
-
-```bash
-cd /workspaces/Course-Management-System
-python3 -m unittest tests/test_routes.py
-```
-
-Run the frontend lint and build checks with:
+Run the frontend lint and build checks from `frontend-react`:
 
 ```bash
 cd /workspaces/Course-Management-System/frontend-react
@@ -190,24 +190,13 @@ npm run lint
 npm run build
 ```
 
-## Production Configuration
-Set application secrets before deploying instead of using local development defaults:
-
-```bash
-export SECRET_KEY="replace-with-a-long-random-value"
-export JWT_SECRET_KEY="replace-with-another-long-random-value"
-```
-
 ## Notes
-- The React app calls the Flask backend through API routes, such as /api/courses and /api/login.
-- The frontend is no longer a static HTML-only app; it is a client-side React SPA with navigation handled by React Router.
-- SQLite is used for local development.
+- Express exposes collection endpoints such as `/courses`, `/students`, and `/enrollments`.
+- `db.json` is writable mock storage, not suitable for production or real credentials.
+- The app uses a client-side React SPA with navigation handled by React Router.
 
 ## Future Improvements
-- Add more protected API endpoints for faculty and course management
-- Connect the remaining forms to live backend submission endpoints
-- Add JWT-based authentication
-- Deploy frontend and backend separately to production
+- Replace the mock API and demo authentication with a production backend before deployment.
 
 ## License
 This project is intended for educational and academic use.

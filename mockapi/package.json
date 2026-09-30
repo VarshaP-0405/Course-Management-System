@@ -2,7 +2,7 @@
   "name": "course-management-mock-api",
   "private": true,
   "scripts": {
-    "start": "json-server --watch db.json --host 127.0.0.1 --port ${PORT:-3001} --middlewares ./read-only.js"
+    "start": "json-server --watch db.json --host 127.0.0.1 --port ${PORT:-3001}"
   },
   "devDependencies": {
     "json-server": "0.17.4"

@@ -11,4 +11,6 @@ export const config = {
   port: Number(process.env.PORT || 3002),
   corsOrigins,
   dataFile: resolve(process.cwd(), process.env.DATA_FILE || '../mockapi/db.json'),
+  jwtSecret: process.env.JWT_SECRET || '',
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '1h',
 }

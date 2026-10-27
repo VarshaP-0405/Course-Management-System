@@ -179,12 +179,12 @@ function RoleRoute({ allowedRoles, children }) {
   const role = String(session?.role || '')
 
   useEffect(() => {
-    if (!allowedRoles.includes(role)) {
+    if (!session?.token || !allowedRoles.includes(role)) {
       navigate(session?.role ? roleDestinations[Number(role)] || '/' : '/login', { replace: true })
     }
-  }, [allowedRoles, navigate, role, session?.role])
+  }, [allowedRoles, navigate, role, session?.role, session?.token])
 
-  return loading ? <p role="status">Loading your account...</p> : allowedRoles.includes(role) ? children : null
+  return loading ? <p role="status">Loading your account...</p> : session?.token && allowedRoles.includes(role) ? children : null
 }
 
 function Footer() {
@@ -920,7 +920,17 @@ function AddFacultyPage() {
       })
       await request('faculty', {
         method: 'POST',
-        body: JSON.stringify({ ...form, user_id: user.id, blacklisted: 'N' }),
+        body: JSON.stringify({
+          first_name: form.first_name,
+          last_name: form.last_name,
+          phone: form.phone,
+          department: form.department,
+          qualification: form.qualification,
+          specialization: form.specialization,
+          employee_id: form.employee_id,
+          user_id: user.id,
+          blacklisted: 'N',
+        }),
       })
       await refresh()
       setMessage('Faculty account created successfully.')
@@ -1456,6 +1466,13 @@ function AdminDatabasePage() {
     }
 
     const isCreate = editor.mode === 'create'
+    if (!isCreate && body.id !== undefined) {
+      if (String(body.id) !== String(editor.id)) {
+        setError('Record id cannot be changed.')
+        return
+      }
+      delete body.id
+    }
     try {
       await request(isCreate ? collection : `${collection}/${editor.id}`, {
         method: isCreate ? 'POST' : 'PATCH',

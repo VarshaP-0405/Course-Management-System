@@ -1,6 +1,6 @@
 # Course Management Backend
 
-The Express service provides the API used by the React app and persists collection records in `mockapi/db.json`.
+The Express service provides the API used by every React page and persists collection records in `mockapi/db.json`.
 
 ## Start
 
@@ -10,14 +10,59 @@ npm install
 npm start
 ```
 
-The service listens on `http://localhost:3002` by default. Copy `.env.example` to `.env` to customize `PORT`, `HOST`, `CORS_ORIGIN`, or `DATA_FILE`.
+The service listens on `http://localhost:3002` by default. Copy `.env.example` to `.env` and set `JWT_SECRET` to a random secret of at least 32 bytes before starting the service:
+
+```bash
+cp .env.example .env
+openssl rand -base64 32
+```
+
+Paste the generated value into `.env` as `JWT_SECRET`. The backend refuses to start without a sufficiently long secret. `JWT_EXPIRES_IN` defaults to `1h`; `PORT`, `HOST`, `CORS_ORIGIN`, and `DATA_FILE` can also be customized.
 
 ## Routes
 
 - `GET /` reports that the server is running.
 - `GET /api/health` reports API health.
-- `POST /api/auth/login` validates the email, password, and role for local demo accounts.
-- Collection routes support `GET`, `POST`, `GET /:id`, `PATCH`, `PUT`, and `DELETE` for the collections in the JSON data file.
+- `POST /api/auth/register` creates a student login and profile in one request. Required fields: a valid `email`, a `password` of 6-128 characters, `first_name`, and `last_name`; `phone` and `department` are optional.
+- `POST /api/auth/login` validates `email` and `password`, with optional `role` (`1` admin, `2` faculty, `3` student), and returns a signed JWT in `token`.
+- `GET /api/auth/me` verifies the bearer token and returns the signed-in account.
+- Send `Authorization: Bearer <token>` on authenticated requests. Tokens are signed with HS256, expire after one hour by default, and invalid, missing, or expired tokens receive `401 Unauthorized`.
+- Student endpoints: `GET/POST /api/students`, `GET/PUT/PATCH/DELETE /api/students/:id`.
+- Course endpoints: `GET/POST /api/courses`, `GET/PUT/PATCH/DELETE /api/courses/:id`.
+- The same collection operations are available for `users`, `faculty`, `course_faculty`, `modules`, `enrollments`, `progress`, `notifications`, and `reviews`, supporting the dashboards and admin tools.
+- Course and module reads are public for course discovery. Other collection requests require authentication. Admins can manage collections; faculty can manage modules; students can create enrollments for their own student profile and can only read their own student-related records.
+- Collection routes return JSON, use `201` for creates, `200` for reads/updates, `204` for deletes, and JSON errors with appropriate `4xx` status codes. Password fields are never included in user API responses.
+- Legacy collection paths such as `/courses` remain available for compatibility.
+
+All collection create/update requests must be JSON objects. Creates validate required fields and field types; `PUT` replaces a record, while `PATCH` updates only the supplied fields.
+
+## Test
+
+```bash
+npm test
+```
+
+The API tests use a temporary copy of the JSON data file and do not alter the demo data.
+
+## Postman
+
+Set a Postman environment variable named `baseUrl` to `http://localhost:3002`. Send JSON bodies with `Content-Type: application/json`. Register a student and log in:
+
+```http
+POST {{baseUrl}}/api/auth/register
+{
+  "email": "student@example.test",
+  "password": "demo1234",
+  "first_name": "Example",
+  "last_name": "Student",
+  "phone": "555-0100",
+  "department": "Science"
+}
+```
+
+Then send `POST {{baseUrl}}/api/auth/login` with that email and password. Save the returned `token` as a Postman environment variable and configure subsequent protected requests with `Authorization: Bearer {{token}}`. Verify `GET {{baseUrl}}/api/auth/me`, student-owned data, and the course CRUD paths above. Also try `GET {{baseUrl}}/api/students` without a token to confirm it returns `401`.
+
+The frontend logout action removes the stored token and session. JWTs are stateless and remain valid until expiry, so use a short expiry and protect the signing secret.
 
 ## Structure
 
@@ -29,4 +74,4 @@ The service listens on `http://localhost:3002` by default. Copy `.env.example` t
 - `src/app.js`: Express middleware and route composition
 - `src/server.js`: HTTP server entry point
 
-This is an educational local backend. It uses a writable JSON file and demo passwords; it is not suitable for production deployment.
+This is an educational local backend. It uses a writable JSON file and the seeded demo accounts use plain-text demo passwords; it is not suitable for production deployment.

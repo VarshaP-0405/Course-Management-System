@@ -68,7 +68,7 @@ Course-Management-System/
 ## React Routing Setup
 The React frontend uses React Router for navigation between pages.
 
-The React app reads users, students, courses, enrollments, modules, and progress from JSON Server. Context stores the signed-in user and fetched collections so dashboard data updates when mock records change.
+The React app reads and writes users, students, courses, enrollments, modules, and progress through the Express JSON API. Context stores the signed-in user and fetched collections so dashboard data updates when records change.
 
 1. User opens the login page
 2. User enters email, password, and role
@@ -144,7 +144,7 @@ The backend API is served at:
 http://localhost:3002
 ```
 
-Health endpoints are available at `GET /` and `GET /api/health`. The backend exposes the app's collection routes and `POST /api/auth/login`.
+Health endpoints are available at `GET /` and `GET /api/health`. Authentication endpoints are `POST /api/auth/register`, `POST /api/auth/login`, and `GET /api/auth/me`. Login returns a JWT that the frontend sends as a bearer token to protected endpoints; student records are scoped to the signed-in student and collection writes are role-restricted. Course and module reads remain public for course discovery. Student and course collections support `GET`, `POST`, `GET /:id`, `PUT`, `PATCH`, and `DELETE` under `/api/students` and `/api/courses`. The same CRUD API is available for all collections used throughout the React pages. See [backend/README.md](backend/README.md) for JWT setup, request fields, permissions, and test instructions.
 
 ## Demo Accounts
 All seeded accounts use the local mock password `demo123`.
@@ -182,9 +182,12 @@ The React app uses a protected route check to stop users from visiting a dashboa
 - Faculty Profile: /faculty/profile
 
 ## Testing
-Run the frontend lint and build checks from `frontend-react`:
+Run the API test suite and frontend lint/build checks:
 
 ```bash
+cd backend
+npm test
+
 cd /workspaces/Course-Management-System/frontend-react
 npm run lint
 npm run build
@@ -200,4 +203,3 @@ npm run build
 
 ## License
 This project is intended for educational and academic use.
-

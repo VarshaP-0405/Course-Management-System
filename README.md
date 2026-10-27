@@ -31,6 +31,7 @@ Admins can:
 - Responsive React-based frontend with routing
 - Context-managed authentication, course, enrollment, and student state
 - JSON Server collections for local API-backed data
+- Documented collection schema, relationships, and integrity constraints
 
 ## Tech Stack
 - Frontend: React, Vite, React Router
@@ -145,6 +146,8 @@ http://localhost:3002
 ```
 
 Health endpoints are available at `GET /` and `GET /api/health`. Authentication endpoints are `POST /api/auth/register`, `POST /api/auth/login`, and `GET /api/auth/me`. Login returns a JWT that the frontend sends as a bearer token to protected endpoints; student records are scoped to the signed-in student and collection writes are role-restricted. Course and module reads remain public for course discovery. Student and course collections support `GET`, `POST`, `GET /:id`, `PUT`, `PATCH`, and `DELETE` under `/api/students` and `/api/courses`. The same CRUD API is available for all collections used throughout the React pages. See [backend/README.md](backend/README.md) for JWT setup, request fields, permissions, and test instructions.
+
+The local database collections, unique keys, foreign-key relationships, and Mermaid ER diagram are documented in [backend/DATABASE_SCHEMA.md](backend/DATABASE_SCHEMA.md).
 
 ## Demo Accounts
 All seeded accounts use the local mock password `demo123`.

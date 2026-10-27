@@ -273,11 +273,47 @@ test('student, course, authentication, and page collection endpoints', async (t)
     assert.equal((await request(`/api/courses/${id}`)).status, 404)
   })
 
+  await t.test('enforces unique keys, foreign keys, and restricted deletes', async () => {
+    const duplicateEmail = await request('/api/users', {
+      method: 'POST',
+      body: { email: 'VARSHa@gmail.com', password: 'another123', role: 3 },
+    })
+    assert.equal(duplicateEmail.status, 409)
+
+    const duplicateCourseCode = await request('/api/courses', {
+      method: 'POST',
+      body: { course_name: 'Duplicate code', course_code: 'PY101' },
+    })
+    assert.equal(duplicateCourseCode.status, 409)
+
+    const missingCourseReference = await request('/api/modules', {
+      method: 'POST',
+      body: { course_id: 9999, title: 'Orphan module' },
+    })
+    assert.equal(missingCourseReference.status, 409)
+
+    const createdCourse = await request('/api/courses', {
+      method: 'POST',
+      body: { course_name: 'Referenced course', course_code: 'REF-101' },
+    })
+    assert.equal(createdCourse.status, 201)
+    const module = await request('/api/modules', {
+      method: 'POST',
+      body: { course_id: createdCourse.data.id, title: 'Linked module', module_number: 1 },
+    })
+    assert.equal(module.status, 201)
+
+    const blockedDelete = await request(`/api/courses/${createdCourse.data.id}`, { method: 'DELETE' })
+    assert.equal(blockedDelete.status, 409)
+    assert.equal((await request(`/api/modules/${module.data.id}`, { method: 'DELETE' })).status, 204)
+    assert.equal((await request(`/api/courses/${createdCourse.data.id}`, { method: 'DELETE' })).status, 204)
+  })
+
   await t.test('supports CRUD for every remaining page collection', async () => {
     const records = [
       {
         collection: 'faculty',
-        body: { first_name: 'Page', last_name: 'Faculty', user_id: 3 },
+          body: { first_name: 'Page', last_name: 'Faculty' },
         patch: { department: '' },
         replacement: { first_name: 'Updated', last_name: 'Faculty' },
       },

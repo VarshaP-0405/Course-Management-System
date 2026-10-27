@@ -7,17 +7,24 @@ The Express service provides the API used by every React page and persists colle
 ```bash
 cd /workspaces/Course-Management-System/backend
 npm install
-npm start
 ```
 
-The service listens on `http://localhost:3002` by default. Copy `.env.example` to `.env` and set `JWT_SECRET` to a random secret of at least 32 bytes before starting the service:
+Create the local environment file and generate a signing secret:
 
 ```bash
 cp .env.example .env
 openssl rand -base64 32
 ```
 
-Paste the generated value into `.env` as `JWT_SECRET`. The backend refuses to start without a sufficiently long secret. `JWT_EXPIRES_IN` defaults to `1h`; `PORT`, `HOST`, `CORS_ORIGIN`, and `DATA_FILE` can also be customized.
+Paste the generated output after `JWT_SECRET=` in `.env`, save the file, then start the backend:
+
+```bash
+npm start
+```
+
+The service listens on `http://localhost:3002` by default. The backend refuses to start without a sufficiently long secret. `.env` is local-only and ignored by Git. `JWT_EXPIRES_IN` defaults to `1h`; `PORT`, `HOST`, `CORS_ORIGIN`, and `DATA_FILE` can also be customized.
+
+See [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md) for collection fields, constraints, relationships, and the ER diagram.
 
 ## Routes
 
@@ -32,6 +39,7 @@ Paste the generated value into `.env` as `JWT_SECRET`. The backend refuses to st
 - The same collection operations are available for `users`, `faculty`, `course_faculty`, `modules`, `enrollments`, `progress`, `notifications`, and `reviews`, supporting the dashboards and admin tools.
 - Course and module reads are public for course discovery. Other collection requests require authentication. Admins can manage collections; faculty can manage modules; students can create enrollments for their own student profile and can only read their own student-related records.
 - Collection routes return JSON, use `201` for creates, `200` for reads/updates, `204` for deletes, and JSON errors with appropriate `4xx` status codes. Password fields are never included in user API responses.
+- Collection validation enforces required fields and types, unique keys, and foreign-key references. Deletion of referenced records returns `409 Conflict`.
 - Legacy collection paths such as `/courses` remain available for compatibility.
 
 All collection create/update requests must be JSON objects. Creates validate required fields and field types; `PUT` replaces a record, while `PATCH` updates only the supplied fields.

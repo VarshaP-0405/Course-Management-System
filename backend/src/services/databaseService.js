@@ -1,5 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { config } from '../config/env.js'
+import { ensureRecordCanBeDeleted, validateDatabaseRecord } from './databaseConstraints.js'
 
 let writeQueue = Promise.resolve()
 
@@ -45,13 +46,9 @@ export async function findRecord(collection, id) {
 export async function createRecord(collection, values) {
   return updateDatabase((database) => {
     const records = collectionFrom(database, collection)
-    if (collection === 'users' && records.some((record) => record.email?.trim().toLowerCase() === values.email.trim().toLowerCase())) {
-      const error = new Error('An account with this email already exists.')
-      error.statusCode = 409
-      throw error
-    }
     const nextId = records.reduce((maximum, record) => Math.max(maximum, Number(record.id) || 0), 0) + 1
     const record = { ...values, id: nextId }
+    validateDatabaseRecord(database, collection, record)
     records.push(record)
     return record
   })
@@ -61,12 +58,6 @@ export async function registerStudentAccount({ email, password, first_name, last
   return updateDatabase((database) => {
     const users = collectionFrom(database, 'users')
     const students = collectionFrom(database, 'students')
-    if (users.some((record) => record.email?.trim().toLowerCase() === email.trim().toLowerCase())) {
-      const error = new Error('An account with this email already exists.')
-      error.statusCode = 409
-      throw error
-    }
-
     const user = {
       id: users.reduce((maximum, record) => Math.max(maximum, Number(record.id) || 0), 0) + 1,
       email: email.trim(),
@@ -74,6 +65,8 @@ export async function registerStudentAccount({ email, password, first_name, last
       role: 3,
       created_at: new Date().toISOString(),
     }
+    validateDatabaseRecord(database, 'users', user)
+    users.push(user)
     const student = {
       id: students.reduce((maximum, record) => Math.max(maximum, Number(record.id) || 0), 0) + 1,
       user_id: user.id,
@@ -83,7 +76,7 @@ export async function registerStudentAccount({ email, password, first_name, last
       department: department.trim(),
       blacklisted: 'N',
     }
-    users.push(user)
+    validateDatabaseRecord(database, 'students', student)
     students.push(student)
     return { user, student }
   })
@@ -94,14 +87,10 @@ export async function updateRecord(collection, id, values) {
     const records = collectionFrom(database, collection)
     const index = records.findIndex((record) => String(record.id) === String(id))
     if (index < 0) return null
-    if (collection === 'users' && values.email !== undefined
-      && records.some((record, recordIndex) => recordIndex !== index && record.email?.trim().toLowerCase() === values.email.trim().toLowerCase())) {
-      const error = new Error('An account with this email already exists.')
-      error.statusCode = 409
-      throw error
-    }
-    records[index] = { ...records[index], ...values, id: records[index].id }
-    return records[index]
+    const updated = { ...records[index], ...values, id: records[index].id }
+    validateDatabaseRecord(database, collection, updated, id)
+    records[index] = updated
+    return updated
   })
 }
 
@@ -110,14 +99,10 @@ export async function replaceRecord(collection, id, values) {
     const records = collectionFrom(database, collection)
     const index = records.findIndex((record) => String(record.id) === String(id))
     if (index < 0) return null
-    if (collection === 'users' && values.email !== undefined
-      && records.some((record, recordIndex) => recordIndex !== index && record.email?.trim().toLowerCase() === values.email.trim().toLowerCase())) {
-      const error = new Error('An account with this email already exists.')
-      error.statusCode = 409
-      throw error
-    }
-    records[index] = { ...values, id: records[index].id }
-    return records[index]
+    const replaced = { ...values, id: records[index].id }
+    validateDatabaseRecord(database, collection, replaced, id)
+    records[index] = replaced
+    return replaced
   })
 }
 
@@ -126,6 +111,7 @@ export async function deleteRecord(collection, id) {
     const records = collectionFrom(database, collection)
     const index = records.findIndex((record) => String(record.id) === String(id))
     if (index < 0) return null
+    ensureRecordCanBeDeleted(database, collection, id)
     return records.splice(index, 1)[0]
   })
 }

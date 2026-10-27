@@ -164,23 +164,22 @@ export function validateRecord(collection, body, { partial = false } = {}) {
 
   if (!partial) {
     for (const name of requiredFields[collection]) {
-        if (body[name] === undefined || body[name] === null
-          || (typeof body[name] === 'string' && !body[name].trim())) {
-          throw validationError(`${name} is required.`)
-        }
+      if (body[name] === undefined || body[name] === null
+        || (typeof body[name] === 'string' && !body[name].trim())) {
+        throw validationError(`${name} is required.`)
       }
     }
+  }
 
-    for (const [name, value] of Object.entries(body)) {
-      if (!Object.hasOwn(rules, name)) {
-        throw validationError(`Unknown field: ${name}.`)
-      }
-      if (value === null && !requiredFields[collection].includes(name)) continue
-      if (!isValidValue(rules[name], value)) {
-        throw validationError(`${name} is invalid.`)
-      }
+  for (const [name, value] of Object.entries(body)) {
+    if (!Object.hasOwn(rules, name)) {
+      throw validationError(`Unknown field: ${name}.`)
     }
-
+    if (value === null && !requiredFields[collection].includes(name)) continue
+    if (!isValidValue(rules[name], value)) {
+      throw validationError(`${name} is invalid.`)
+    }
+  }
   return body
 }
 

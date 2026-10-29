@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { getCollection, request } from './api.js'
 import { AppContext } from './app-context.js'
 
 const publicCollections = ['courses', 'modules']
 const collectionsByRole = {
-  1: ['users', 'students', 'faculty', 'courses', 'course_faculty', 'modules', 'enrollments', 'progress', 'notifications', 'reviews'],
-  2: ['students', 'faculty', 'courses', 'course_faculty', 'modules', 'enrollments', 'progress', 'notifications', 'reviews'],
-  3: ['students', 'courses', 'modules', 'enrollments', 'progress', 'notifications', 'reviews'],
+  1: ['users', 'students', 'faculty', 'courses', 'course_faculty', 'modules', 'enrollments', 'progress', 'module_completions', 'notifications', 'reviews'],
+  2: ['students', 'faculty', 'courses', 'course_faculty', 'modules', 'enrollments', 'progress', 'module_completions', 'notifications', 'reviews'],
+  3: ['students', 'courses', 'modules', 'enrollments', 'progress', 'module_completions', 'notifications', 'reviews'],
 }
 
 async function loadCollections(role) {
@@ -30,17 +30,19 @@ export function AppProvider({ children }) {
   const [session, setSession] = useState(getStoredSession)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [lastSyncedAt, setLastSyncedAt] = useState(null)
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     try {
       setRecords(await loadCollections(session?.role))
       setError('')
+      setLastSyncedAt(new Date().toISOString())
     } catch (loadError) {
       setError(loadError.message)
     } finally {
       setLoading(false)
     }
-  }
+  }, [session])
 
   useEffect(() => {
     let active = true
@@ -58,8 +60,10 @@ export function AppProvider({ children }) {
           setSession(nextSession)
           localStorage.setItem('cms_session', JSON.stringify(nextSession))
           setRecords(await loadCollections(nextSession.role))
+          setLastSyncedAt(new Date().toISOString())
         } else {
           setRecords(await loadCollections(null))
+          setLastSyncedAt(new Date().toISOString())
         }
       } catch (loadError) {
         if (!active) return
@@ -79,6 +83,20 @@ export function AppProvider({ children }) {
     initialize()
     return () => { active = false }
   }, [session?.token])
+
+  useEffect(() => {
+    if (!session?.token) return undefined
+
+    const syncWhenVisible = () => {
+      if (document.visibilityState === 'visible') refresh()
+    }
+    const intervalId = window.setInterval(syncWhenVisible, 10000)
+    document.addEventListener('visibilitychange', syncWhenVisible)
+    return () => {
+      window.clearInterval(intervalId)
+      document.removeEventListener('visibilitychange', syncWhenVisible)
+    }
+  }, [refresh, session?.token])
 
   useEffect(() => {
     const handleUnauthorized = () => {
@@ -127,15 +145,68 @@ export function AppProvider({ children }) {
   const enroll = async (courseId) => {
     const student = records.students?.find((item) => String(item.user_id) === String(session?.userId))
     if (!student) throw new Error('No student profile is linked to this account.')
-    if (records.enrollments?.some((item) => String(item.student_id) === String(student.id) && String(item.course_id) === String(courseId))) {
+    const existing = records.enrollments?.find((item) => String(item.student_id) === String(student.id)
+      && String(item.course_id) === String(courseId))
+    if (existing && existing.status !== 'Unenrolled') {
       throw new Error('You are already enrolled in this course.')
     }
     const enrollment = await request('enrollments', {
       method: 'POST',
       body: JSON.stringify({ student_id: student.id, course_id: Number(courseId), status: 'Enrolled', enrollment_date: new Date().toISOString() }),
     })
-    setRecords((current) => ({ ...current, enrollments: [...(current.enrollments || []), enrollment] }))
+    setRecords((current) => ({
+      ...current,
+      enrollments: existing
+        ? current.enrollments.map((item) => String(item.id) === String(existing.id) ? enrollment : item)
+        : [...(current.enrollments || []), enrollment],
+    }))
     return enrollment
+  }
+
+  const unenroll = async (courseId) => {
+    const result = await request(`enrollments/${courseId}`, { method: 'DELETE' })
+    setRecords((current) => ({
+      ...current,
+      enrollments: (current.enrollments || []).map((item) => (
+        String(item.course_id) === String(courseId) && String(item.student_id) === String(student?.id)
+          ? result.enrollment
+          : item
+      )),
+    }))
+    return result
+  }
+
+  const completeModule = async (courseId, moduleId) => {
+    const result = await request(`learning/courses/${courseId}/modules/${moduleId}/complete`, {
+      method: 'POST',
+    })
+    setRecords((current) => {
+      const progress = (current.progress || []).filter((item) => !(String(item.student_id) === String(result.progress.student_id)
+        && String(item.course_id) === String(result.progress.course_id)))
+      const completions = (current.module_completions || []).filter((item) => String(item.student_id) !== String(result.progress.student_id)
+        || !result.completedModuleIds.includes(String(item.module_id)))
+      const nextCompletions = result.completions.reduce((items, completion) => {
+        const index = items.findIndex((item) => String(item.student_id) === String(completion.student_id)
+          && String(item.module_id) === String(completion.module_id))
+        if (index >= 0) items[index] = completion
+        else items.push(completion)
+        return items
+      }, completions)
+      const enrollments = (current.enrollments || []).map((item) => (
+        String(item.student_id) === String(result.progress.student_id)
+          && String(item.course_id) === String(result.progress.course_id)
+          ? { ...item, status: result.courseCompleted ? 'Completed' : item.status }
+          : item
+      ))
+      return {
+        ...current,
+        progress: [...progress, result.progress],
+        module_completions: nextCompletions,
+        enrollments,
+      }
+    })
+    setLastSyncedAt(new Date().toISOString())
+    return result
   }
 
   const user = session
@@ -149,11 +220,14 @@ export function AppProvider({ children }) {
     session,
     loading,
     error,
+    lastSyncedAt,
     refresh,
     signIn,
     signOut,
     registerStudent,
     enroll,
+    unenroll,
+    completeModule,
   }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>

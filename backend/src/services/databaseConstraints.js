@@ -7,6 +7,7 @@ const uniqueKeys = {
   modules: [['course_id', 'module_number']],
   enrollments: [['student_id', 'course_id']],
   progress: [['student_id', 'course_id']],
+  module_completions: [['student_id', 'module_id']],
   reviews: [['student_id', 'course_id']],
 }
 
@@ -25,6 +26,10 @@ const foreignKeys = {
   progress: [
     { field: 'student_id', collection: 'students' },
     { field: 'course_id', collection: 'courses' },
+  ],
+  module_completions: [
+    { field: 'student_id', collection: 'students' },
+    { field: 'module_id', collection: 'modules' },
   ],
   notifications: [{ field: 'student_id', collection: 'students' }],
   reviews: [

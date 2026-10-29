@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { config } from '../config/env.js'
 import { listRecords, registerStudentAccount } from '../services/databaseService.js'
@@ -15,10 +16,15 @@ export async function login(request, response, next) {
 
     const users = await listRecords('users')
     const user = users.find((record) => record.email?.trim().toLowerCase() === email.trim().toLowerCase()
-      && (role === undefined || String(record.role) === String(role))
-      && record.password === password)
+      && (role === undefined || String(record.role) === String(role)))
 
-    if (!user) return response.status(401).json({ message: 'Email, password, or role is incorrect.' })
+    const isBcryptHash = user && /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(user.password)
+    const passwordMatches = user && (isBcryptHash
+      ? await bcrypt.compare(password, user.password)
+      : user.password === password)
+    if (!user || !passwordMatches) {
+      return response.status(401).json({ message: 'Email, password, or role is incorrect.' })
+    }
 
     const profileCollection = String(user.role) === '2' ? 'faculty' : String(user.role) === '3' ? 'students' : null
     if (profileCollection) {
@@ -35,7 +41,13 @@ export async function login(request, response, next) {
       config.jwtSecret,
       { algorithm: 'HS256', subject: String(account.id), expiresIn: config.jwtExpiresIn },
     )
-    return response.json({ ...account, token })
+    return response.json({
+      ...account,
+      message: 'Login successful.',
+      token,
+      tokenType: 'Bearer',
+      expiresIn: config.jwtExpiresIn,
+    })
   } catch (error) {
     return next(error)
   }
@@ -54,6 +66,7 @@ export async function register(request, response, next) {
     const values = validateRegistration(request.body)
     const result = await registerStudentAccount(values)
     return response.status(201).json({
+      message: 'Student registered successfully.',
       user: publicUser(result.user),
       student: result.student,
     })

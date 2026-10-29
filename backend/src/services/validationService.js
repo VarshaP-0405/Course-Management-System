@@ -71,6 +71,11 @@ const fields = {
     total_modules: 'nonNegativeNumber',
     progress_percentage: 'percentage',
   },
+  module_completions: {
+    student_id: 'number',
+    module_id: 'number',
+    completed_at: 'string',
+  },
   notifications: {
     student_id: 'number',
     title: 'string',
@@ -94,6 +99,7 @@ const requiredFields = {
   modules: ['course_id', 'title'],
   enrollments: ['student_id', 'course_id'],
   progress: ['student_id', 'course_id'],
+  module_completions: ['student_id', 'module_id'],
   notifications: ['student_id', 'title', 'message'],
   reviews: ['student_id', 'course_id', 'rating', 'review'],
 }
@@ -190,6 +196,10 @@ export function validateRegistration(body) {
     password: body.password,
     role: 3,
   })
+  if (body.password.length < 8 || body.password.length > 72
+    || Buffer.byteLength(body.password, 'utf8') > 72) {
+    throw validationError('Password must be 8-72 characters and no more than 72 UTF-8 bytes.')
+  }
 
   for (const name of ['first_name', 'last_name']) {
     if (typeof body[name] !== 'string' || !body[name].trim() || body[name].length > 120) {

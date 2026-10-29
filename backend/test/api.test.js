@@ -5,6 +5,7 @@ import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { after, before, test } from 'node:test'
 
@@ -65,6 +66,8 @@ test('student, course, authentication, and page collection endpoints', async (t)
   await t.test('serves JSON for all page collections and keeps legacy routes compatible', async () => {
     assert.equal((await request('/api/courses', { token: null })).status, 200)
     assert.equal((await request('/api/modules', { token: null })).status, 200)
+    assert.equal((await request('/api/v1/courses', { token: null })).status, 200)
+    assert.equal((await request('/api/v1/courses/1', { token: null })).status, 200)
     const anonymous = await request('/api/students', { token: null })
     assert.equal(anonymous.status, 401)
     const invalidToken = await request('/api/students', { token: `${adminToken}invalid` })
@@ -121,6 +124,16 @@ test('student, course, authentication, and page collection endpoints', async (t)
       body: { email: 'not-an-email', password: 'short', first_name: '', last_name: 'Student' },
     })
     assert.equal(invalid.status, 400)
+    const tooLongPassword = await request('/api/auth/register', {
+      method: 'POST',
+      body: {
+        email: 'long-password@example.test',
+        password: 'a'.repeat(73),
+        first_name: 'Long',
+        last_name: 'Password',
+      },
+    })
+    assert.equal(tooLongPassword.status, 400)
 
     const registration = await request('/api/auth/register', {
       method: 'POST',
@@ -133,9 +146,24 @@ test('student, course, authentication, and page collection endpoints', async (t)
       },
     })
     assert.equal(registration.status, 201)
+    assert.equal(registration.data.message, 'Student registered successfully.')
     assert.equal(registration.data.user.role, 3)
     assert.equal(registration.data.student.user_id, registration.data.user.id)
     assert.equal(Object.hasOwn(registration.data.user, 'password'), false)
+    const versionedRegistration = await request('/api/v1/auth/register', {
+      method: 'POST',
+      body: {
+        email: 'api-test-student-v1@example.test',
+        password: 'versionedpass123',
+        first_name: 'Versioned',
+        last_name: 'Student',
+      },
+    })
+    assert.equal(versionedRegistration.status, 201)
+    const persistedDatabase = JSON.parse(await readFile(join(temporaryDirectory, 'db.json'), 'utf8'))
+    const persistedUser = persistedDatabase.users.find((record) => record.id === registration.data.user.id)
+    assert.notEqual(persistedUser.password, 'testpass123')
+    assert.equal(await bcrypt.compare('testpass123', persistedUser.password), true)
 
     const duplicate = await request('/api/auth/register', {
       method: 'POST',
@@ -156,10 +184,16 @@ test('student, course, authentication, and page collection endpoints', async (t)
     assert.equal(login.data.id, registration.data.user.id)
     assert.equal(Object.hasOwn(login.data, 'password'), false)
     assert.equal(typeof login.data.token, 'string')
+    assert.equal(login.data.message, 'Login successful.')
+    assert.equal(login.data.tokenType, 'Bearer')
+    assert.equal(login.data.expiresIn, process.env.JWT_EXPIRES_IN || '1h')
     studentToken = login.data.token
     const identity = await request('/api/auth/me', { token: studentToken })
     assert.equal(identity.data.id, registration.data.user.id)
     assert.equal(identity.data.role, 3)
+    const versionedIdentity = await request('/api/v1/auth/me', { token: studentToken })
+    assert.equal(versionedIdentity.data.id, registration.data.user.id)
+    assert.equal(versionedIdentity.data.role, 3)
 
     const badLogin = await request('/api/auth/login', {
       method: 'POST',
@@ -185,10 +219,121 @@ test('student, course, authentication, and page collection endpoints', async (t)
     const ownEnrollment = await request('/api/enrollments', {
       method: 'POST',
       token: studentToken,
-      body: { student_id: registration.data.student.id, course_id: 1, status: 'Enrolled' },
+      body: { student_id: registration.data.student.id, course_id: 3, status: 'Enrolled' },
     })
     assert.equal(ownEnrollment.status, 201)
     assert.equal(ownEnrollment.data.student_id, registration.data.student.id)
+
+    const completion = await request('/api/learning/courses/3/modules/3/complete', {
+      method: 'POST',
+      token: studentToken,
+    })
+    assert.equal(completion.status, 200)
+    assert.equal(completion.data.progress.progress_percentage, 100)
+    assert.equal(completion.data.courseCompleted, true)
+    const duplicateCompletion = await request('/api/learning/courses/3/modules/3/complete', {
+      method: 'POST',
+      token: studentToken,
+    })
+    assert.equal(duplicateCompletion.status, 200)
+    assert.equal(duplicateCompletion.data.progress.completed_modules, 1)
+    assert.equal((await request('/api/enrollments', { token: studentToken })).data
+      .find((item) => item.id === ownEnrollment.data.id).status, 'Completed')
+    assert.equal((await request('/api/module_completions', { token: studentToken })).data
+      .filter((item) => item.student_id === registration.data.student.id).length, 1)
+    assert.equal((await request('/api/learning/courses/3/modules/3/complete', {
+      method: 'POST',
+      token: adminToken,
+    })).status, 403)
+    assert.equal((await request('/api/learning/courses/3/modules/3/complete', { token: null })).status, 401)
+    assert.equal((await request('/api/learning/courses/2/modules/2/complete', {
+      method: 'POST',
+      token: studentToken,
+    })).status, 403)
+
+    const additionalLesson = await request('/api/modules', {
+      method: 'POST',
+      body: { course_id: 3, title: 'Agent workflow practice', module_number: 2 },
+    })
+    assert.equal(additionalLesson.status, 201)
+    const updatedProgress = (await request('/api/progress', { token: studentToken })).data
+      .find((item) => String(item.course_id) === '3')
+    assert.equal(updatedProgress.progress_percentage, 50)
+    assert.equal((await request('/api/enrollments', { token: studentToken })).data
+      .find((item) => item.id === ownEnrollment.data.id).status, 'Enrolled')
+
+    const finalCompletion = await request(`/api/learning/courses/3/modules/${additionalLesson.data.id}/complete`, {
+      method: 'POST',
+      token: studentToken,
+    })
+    assert.equal(finalCompletion.data.progress.progress_percentage, 100)
+    assert.equal(finalCompletion.data.courseCompleted, true)
+
+    const additionalWebLesson = await request('/api/modules', {
+      method: 'POST',
+      body: { course_id: 2, title: 'CSS layouts', module_number: 2 },
+    })
+    assert.equal(additionalWebLesson.status, 201)
+    const courseEnrollment = await request('/api/enrollments', {
+      method: 'POST',
+      token: studentToken,
+      body: { student_id: registration.data.student.id, course_id: 2, status: 'Enrolled' },
+    })
+    assert.equal(courseEnrollment.status, 201)
+    const webLessonCompletion = await request('/api/learning/courses/2/modules/2/complete', {
+      method: 'POST',
+      token: studentToken,
+    })
+    assert.equal(webLessonCompletion.data.progress.progress_percentage, 50)
+    const myCourses = await request('/api/v1/enrollments/my-courses', { token: studentToken })
+    assert.equal(myCourses.status, 200)
+    assert.equal(myCourses.data.enrollments.find((item) => item.course_id === 2).course.course_name, 'Web Development')
+    assert.equal(myCourses.data.totalEnrollments, 2)
+    assert.equal((await request('/api/v1/enrollments/my-courses', { token: adminToken })).status, 403)
+    assert.equal((await request('/api/enrollments', {
+      method: 'POST',
+      token: adminToken,
+      body: { student_id: registration.data.student.id, course_id: 1, status: 'Enrolled' },
+    })).status, 403)
+    assert.equal((await request('/api/enrollments', {
+      method: 'POST',
+      token: null,
+      body: { student_id: registration.data.student.id, course_id: 1, status: 'Enrolled' },
+    })).status, 401)
+    assert.equal((await request('/api/enrollments', {
+      method: 'POST',
+      token: studentToken,
+      body: { student_id: registration.data.student.id, course_id: 2, status: 'Enrolled' },
+    })).status, 409)
+
+    const unenrollment = await request('/api/v1/enrollments/2', {
+      method: 'DELETE',
+      token: studentToken,
+    })
+    assert.equal(unenrollment.status, 200)
+    assert.equal(unenrollment.data.enrollment.status, 'Unenrolled')
+    assert.equal((await request('/api/v1/enrollments/my-courses', { token: studentToken })).data.totalEnrollments, 1)
+    assert.equal((await request('/api/progress', { token: studentToken })).data
+      .find((item) => item.course_id === 2).progress_percentage, 50)
+    assert.equal((await request('/api/v1/enrollments/2', {
+      method: 'DELETE',
+      token: studentToken,
+    })).status, 404)
+    assert.equal((await request('/api/enrollments/2', { method: 'DELETE', token: null })).status, 401)
+    assert.equal((await request('/api/enrollments/2', {
+      method: 'DELETE',
+      token: adminToken,
+    })).status, 403)
+    const reenrollment = await request('/api/enrollments', {
+      method: 'POST',
+      token: studentToken,
+      body: { student_id: registration.data.student.id, course_id: 2, status: 'Enrolled' },
+    })
+    assert.equal(reenrollment.status, 201)
+    assert.equal(reenrollment.data.id, courseEnrollment.data.id)
+    assert.equal(reenrollment.data.status, 'Enrolled')
+    assert.equal((await request('/api/progress', { token: studentToken })).data
+      .find((item) => item.course_id === 2).progress_percentage, 50)
 
     const otherEnrollment = await request('/api/enrollments', {
       method: 'POST',
@@ -235,6 +380,25 @@ test('student, course, authentication, and page collection endpoints', async (t)
   })
 
   await t.test('validates and supports course create, read, update, and delete', async () => {
+    assert.equal((await request('/api/courses', { token: null })).status, 200)
+    assert.equal((await request('/api/courses/1', { token: null })).status, 200)
+    assert.equal((await request('/api/courses', {
+      method: 'POST',
+      token: null,
+      body: { course_name: 'Anonymous course', course_code: 'ANON-1' },
+    })).status, 401)
+    assert.equal((await request('/api/courses/1', {
+      method: 'PUT',
+      token: null,
+      body: { course_name: 'Anonymous course', course_code: 'ANON-1' },
+    })).status, 401)
+    assert.equal((await request('/api/courses/1', { method: 'DELETE', token: null })).status, 401)
+    assert.equal((await request('/api/v1/courses', {
+      method: 'POST',
+      token: null,
+      body: { course_name: 'Anonymous versioned course', course_code: 'ANON-V1' },
+    })).status, 401)
+
     const invalid = await request('/api/courses', {
       method: 'POST',
       body: { course_name: 'Incomplete course' },
@@ -325,21 +489,21 @@ test('student, course, authentication, and page collection endpoints', async (t)
       },
       {
         collection: 'modules',
-        body: { course_id: 1, title: 'Page module', module_number: 1 },
+        body: { course_id: 1, title: 'Page module', module_number: 2 },
         patch: { title: 'Updated module' },
         replacement: { course_id: 1, title: 'Replacement module' },
-      },
-      {
-        collection: 'enrollments',
-        body: { student_id: 1, course_id: 2, status: 'Enrolled' },
-        patch: { status: 'Completed' },
-        replacement: { student_id: 1, course_id: 2, status: 'Enrolled' },
       },
       {
         collection: 'progress',
         body: { student_id: 1, course_id: 2, completed_modules: 0, total_modules: 1, progress_percentage: 0 },
         patch: { progress_percentage: 100 },
         replacement: { student_id: 1, course_id: 2, completed_modules: 1, total_modules: 1, progress_percentage: 100 },
+      },
+      {
+        collection: 'module_completions',
+        body: { student_id: 1, module_id: 1, completed_at: new Date().toISOString() },
+        patch: { completed_at: new Date().toISOString() },
+        replacement: { student_id: 1, module_id: 1, completed_at: new Date().toISOString() },
       },
       {
         collection: 'notifications',

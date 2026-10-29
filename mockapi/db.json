@@ -102,13 +102,44 @@
       "faculty_id": 1
     }
   ],
-  "modules": [],
+  "modules": [
+    {
+      "id": 1,
+      "course_id": 1,
+      "title": "Python programming essentials",
+      "description": "Start with Python syntax, variables, and control flow.",
+      "module_number": 1,
+      "video_link": "https://www.youtube.com/embed/kqtD5dpn9C8",
+      "notes": "Follow along with the examples and try each exercise.",
+      "duration": "1 hour"
+    },
+    {
+      "id": 2,
+      "course_id": 2,
+      "title": "HTML foundations",
+      "description": "Build a first web page and understand the structure of HTML.",
+      "module_number": 1,
+      "video_link": "https://www.youtube.com/embed/UB1O30fR-EE",
+      "notes": "Pause to recreate the page structure in your editor.",
+      "duration": "1 hour"
+    },
+    {
+      "id": 3,
+      "course_id": 3,
+      "title": "Neural network foundations",
+      "description": "Visual introduction to neural networks, a foundation for modern AI systems.",
+      "module_number": 1,
+      "video_link": "https://www.youtube.com/embed/aircAruvnKk",
+      "notes": "Consider how a model can be used as one component in a larger agent workflow.",
+      "duration": "20 minutes"
+    }
+  ],
   "enrollments": [
     {
       "id": 1,
       "student_id": 1,
       "course_id": 3,
-      "status": "Enrolled",
+      "status": "Completed",
       "enrollment_date": "2026-09-25T09:00:00.000Z"
     }
   ],
@@ -118,8 +149,16 @@
       "student_id": 1,
       "course_id": 3,
       "completed_modules": 1,
-      "total_modules": 3,
-      "progress_percentage": 33
+      "total_modules": 1,
+      "progress_percentage": 100
+    }
+  ],
+  "module_completions": [
+    {
+      "id": 1,
+      "student_id": 1,
+      "module_id": 3,
+      "completed_at": "2026-09-26T09:00:00.000Z"
     }
   ],
   "notifications": [

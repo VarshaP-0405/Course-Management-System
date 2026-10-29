@@ -36,7 +36,7 @@ export function authorizeCollection(request, response, next) {
 
   if (isRead) {
     if (role === '1' || role === '2') return next()
-    if (role === '3' && ['students', 'enrollments', 'progress', 'notifications', 'reviews'].includes(collection)) {
+    if (role === '3' && ['students', 'enrollments', 'progress', 'module_completions', 'notifications', 'reviews'].includes(collection)) {
       return next()
     }
     return response.status(403).json({ message: 'Your role cannot access this collection.' })

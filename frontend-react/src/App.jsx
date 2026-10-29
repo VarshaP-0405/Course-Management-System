@@ -14,7 +14,7 @@ import './App.css'
 
 const databaseCollections = [
   'users', 'students', 'faculty', 'courses', 'course_faculty',
-  'modules', 'enrollments', 'progress', 'notifications', 'reviews',
+  'modules', 'enrollments', 'progress', 'module_completions', 'notifications', 'reviews',
 ]
 
 const databaseTemplates = {
@@ -26,6 +26,7 @@ const databaseTemplates = {
   modules: { course_id: null, title: '', description: '', module_number: 1, video_link: '', notes: '' },
   enrollments: { student_id: null, course_id: null, status: 'Enrolled' },
   progress: { student_id: null, course_id: null, completed_modules: 0, total_modules: 0, progress_percentage: 0 },
+  module_completions: { student_id: null, module_id: null, completed_at: '' },
   notifications: { student_id: null, title: '', message: '', is_read: false },
   reviews: { student_id: null, course_id: null, rating: 5, review: '' },
 }
@@ -70,6 +71,7 @@ const adminNavItems = [
 const facultyNavItems = [
   { label: 'Faculty Dashboard', to: '/faculty/dashboard' },
   { label: 'My Courses', to: '/faculty/courses' },
+  { label: 'Students', to: '/faculty/students' },
   { label: 'Profile', to: '/faculty/profile' },
 ]
 
@@ -98,10 +100,17 @@ function PageShell({ title, subtitle, children }) {
 }
 
 function getStudentCourses(student, courses = [], enrollments = [], progress = []) {
-  return enrollments.filter((item) => String(item.student_id) === String(student?.id)).map((enrollment) => {
+  return enrollments.filter((item) => String(item.student_id) === String(student?.id)
+    && item.status !== 'Unenrolled').map((enrollment) => {
     const course = courses.find((item) => String(item.id) === String(enrollment.course_id))
     const courseProgress = progress.find((item) => String(item.student_id) === String(student?.id) && String(item.course_id) === String(enrollment.course_id))
-    return course ? { ...course, enrollmentStatus: enrollment.status, progress: Number(courseProgress?.progress_percentage || 0) } : null
+    return course ? {
+      ...course,
+      enrollmentStatus: enrollment.status,
+      progress: Number(courseProgress?.progress_percentage || 0),
+      completed_modules: Number(courseProgress?.completed_modules || 0),
+      total_modules: Number(courseProgress?.total_modules || 0),
+    } : null
   }).filter(Boolean)
 }
 
@@ -111,14 +120,17 @@ function getFacultyOverview({ user, faculty = [], course_faculty = [], courses =
     .filter((item) => String(item.faculty_id) === String(profile.id))
     .map((item) => String(item.course_id)))
   const assignedCourses = courses.filter((course) => assignedIds.has(String(course.id)))
-  const assignedEnrollments = enrollments.filter((item) => assignedIds.has(String(item.course_id)))
+  const assignedEnrollments = enrollments.filter((item) => assignedIds.has(String(item.course_id))
+    && item.status !== 'Unenrolled')
   const assignedProgress = progress.filter((item) => assignedIds.has(String(item.course_id)))
 
   return {
     faculty: { ...profile, name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() },
     assignedCourses: assignedCourses.map((course) => ({
       ...course,
-      students: enrollments.filter((item) => String(item.course_id) === String(course.id)).length,
+      students: enrollments.filter((item) => String(item.course_id) === String(course.id)
+        && item.status !== 'Unenrolled').length,
+      progress: assignedProgress.filter((item) => String(item.course_id) === String(course.id)),
     })),
     studentCount: new Set(assignedEnrollments.map((item) => item.student_id)).size,
     courseCount: assignedCourses.length,
@@ -365,11 +377,11 @@ function RegisterPage() {
         </label>
         <label>
           Password
-          <input type="password" name="password" value={form.password} onChange={handleChange} placeholder="Password" required />
+          <input type="password" name="password" value={form.password} onChange={handleChange} placeholder="Password" minLength={8} maxLength={72} required />
         </label>
         <label>
           Confirm password
-          <input type="password" name="confirm_password" value={form.confirm_password} onChange={handleChange} placeholder="Confirm password" required />
+          <input type="password" name="confirm_password" value={form.confirm_password} onChange={handleChange} placeholder="Confirm password" minLength={8} maxLength={72} required />
         </label>
         {message ? <p className="form-message success">{message}</p> : null}
         <button className="btn primary full" type="submit">Register</button>
@@ -518,9 +530,37 @@ function CourseDetailsPage() {
 
 function CourseContentPage() {
   const { id } = useParams()
-  const { courses = [], modules = [], loading, error } = useApp()
+  const { courses = [], modules = [], module_completions = [], enrollments = [], student, completeModule, loading, error } = useApp()
+  const [savingModuleId, setSavingModuleId] = useState(null)
+  const [message, setMessage] = useState('')
   const course = courses.find((item) => String(item.id) === id)
-  const courseModules = modules.filter((item) => String(item.course_id) === id)
+  const courseModules = modules
+    .filter((item) => String(item.course_id) === id)
+    .sort((left, right) => Number(left.module_number || 0) - Number(right.module_number || 0))
+  const isEnrolled = enrollments.some((item) => String(item.student_id) === String(student?.id)
+    && String(item.course_id) === id
+    && item.status !== 'Unenrolled')
+  const completedModuleIds = new Set(module_completions
+    .filter((item) => String(item.student_id) === String(student?.id))
+    .map((item) => String(item.module_id)))
+  const progress = courseModules.length
+    ? Math.round((courseModules.filter((item) => completedModuleIds.has(String(item.id))).length / courseModules.length) * 100)
+    : 0
+
+  const handleCompleteModule = async (moduleId) => {
+    setSavingModuleId(moduleId)
+    setMessage('')
+    try {
+      const result = await completeModule(id, moduleId)
+      setMessage(result.courseCompleted
+        ? 'Course completed! Your certificate is ready to download.'
+        : 'Lesson marked complete. Your progress has been saved.')
+    } catch (completionError) {
+      setMessage(completionError.message)
+    } finally {
+      setSavingModuleId(null)
+    }
+  }
 
   if (loading) {
     return <PageShell title="Course content" subtitle="Loading your learning materials..." />
@@ -538,37 +578,89 @@ function CourseContentPage() {
           <span>Duration: {course.duration || 'Self-paced'}</span>
           <span>Credits: {course.credits || 0}</span>
           <span>{courseModules.length} modules</span>
+          {isEnrolled ? <span>Your progress: {progress}%</span> : null}
         </div>
+        {isEnrolled ? <div className="progress-line"><span style={{ width: `${progress}%` }} /></div> : null}
       </div>
+      {message ? <p className="form-message success" role="status">{message}</p> : null}
 
       <div className="card-grid">
         {courseModules.map((module, index) => (
           <article key={module.id} className="course-card">
-            <span className="badge">Module {index + 1}</span>
+            <span className="badge">Module {module.module_number || index + 1}</span>
             <h3>{module.title}</h3>
             <p>{module.description}</p>
+            {module.video_link ? <VideoPlayer url={module.video_link} title={module.title} /> : <p className="video-placeholder">No video has been added for this lesson.</p>}
             <div className="detail-card compact-detail-card">
               <strong>Notes</strong>
               <p>{module.notes}</p>
             </div>
             <div className="card-actions">
-              {module.video_link ? (
-                <a className="btn primary" href={module.video_link} target="_blank" rel="noreferrer">
-                  Watch video
-                </a>
-              ) : null}
               <span className="badge">{module.duration}</span>
+              {isEnrolled ? (
+                <button
+                  className="btn primary"
+                  type="button"
+                  onClick={() => handleCompleteModule(module.id)}
+                  disabled={completedModuleIds.has(String(module.id)) || savingModuleId === module.id}
+                >
+                  {completedModuleIds.has(String(module.id))
+                    ? 'Completed'
+                    : savingModuleId === module.id ? 'Saving...' : 'Mark complete'}
+                </button>
+              ) : null}
             </div>
           </article>
         ))}
+        {!courseModules.length ? <div className="empty-state">No lessons have been published for this course yet.</div> : null}
       </div>
+      {isEnrolled && progress === 100 ? <Link className="btn primary" to="/certificate">View your completion certificate</Link> : null}
     </PageShell>
   )
 }
 
+function VideoPlayer({ url, title }) {
+  let parsedUrl
+  try {
+    parsedUrl = new URL(url)
+  } catch {
+    return <p className="video-placeholder">This video URL is invalid.</p>
+  }
+
+  const isYoutube = parsedUrl.hostname === 'youtube.com'
+    || parsedUrl.hostname === 'www.youtube.com'
+    || parsedUrl.hostname === 'youtu.be'
+  const youtubeId = parsedUrl.hostname === 'youtu.be'
+    ? parsedUrl.pathname.slice(1)
+    : isYoutube
+      ? parsedUrl.pathname.startsWith('/embed/')
+        ? parsedUrl.pathname.split('/')[2]
+        : parsedUrl.searchParams.get('v')
+      : null
+  const directVideo = /\.(mp4|webm|ogg)$/i.test(parsedUrl.pathname)
+
+  if (youtubeId && /^[A-Za-z0-9_-]{11}$/.test(youtubeId)) {
+    return (
+      <div className="video-frame">
+        <iframe
+          title={`${title} video`}
+          src={`https://www.youtube-nocookie.com/embed/${encodeURIComponent(youtubeId)}`}
+          allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        />
+      </div>
+    )
+  }
+  if (directVideo) {
+    return <video className="course-video" controls preload="metadata" src={url}>{title}</video>
+  }
+  return <a className="btn secondary" href={url} target="_blank" rel="noreferrer">Open lesson video</a>
+}
+
 function StudentDashboardPage() {
   const { courses = [], enrollments = [], progress = [], notifications = [], student, user, loading, error } = useApp()
-  const studentEnrollments = enrollments.filter((item) => String(item.student_id) === String(student?.id))
+  const studentEnrollments = enrollments.filter((item) => String(item.student_id) === String(student?.id)
+    && item.status !== 'Unenrolled')
   const activeCourses = getStudentCourses(student, courses, enrollments, progress)
   const studentNotifications = notifications.filter((item) => String(item.student_id) === String(student?.id))
   const averageProgress = activeCourses.length
@@ -658,6 +750,7 @@ function FacultyDashboardPage() {
     <PageShell title="Faculty Dashboard" subtitle="Your teaching load and student activity at a glance.">
       {data.loading ? <p role="status">Loading your faculty dashboard...</p> : null}
       {data.error ? <p className="form-message error" role="alert">{data.error}</p> : null}
+      {data.lastSyncedAt ? <p className="live-update-note" role="status">Live course updates · refreshed {new Date(data.lastSyncedAt).toLocaleTimeString()}</p> : null}
       <div className="dashboard-panel">
         <div className="stats-grid">
           <div className="stat-tile"><strong>{dashboard.studentCount}</strong><span>Students in your courses</span></div>
@@ -686,12 +779,102 @@ function FacultyDashboardPage() {
               <span className="badge">{course.course_code || 'Course'}</span>
               <h3>{course.course_name || course.cname}</h3>
               <p>{course.duration || 'Self-paced'} · {course.students} students</p>
+              <p>Average student progress: {course.progress.length
+                ? Math.round(course.progress.reduce((total, item) => total + Number(item.progress_percentage || 0), 0) / course.progress.length)
+                : 0}%</p>
               <Link className="btn primary" to={`/faculty/courses/${course.id}`}>Manage course</Link>
             </article>
           ))}
           {!dashboard.assignedCourses.length ? <div className="empty-state">No courses are assigned to this faculty account yet.</div> : null}
         </div>
       </div>
+      <FacultyStudentProgress data={data} dashboard={dashboard} />
+    </PageShell>
+  )
+}
+
+function FacultyStudentProgress({ data, dashboard }) {
+  const rows = dashboard.assignedCourses.flatMap((course) => (data.enrollments || [])
+    .filter((enrollment) => String(enrollment.course_id) === String(course.id))
+    .map((enrollment) => {
+      const student = (data.students || []).find((record) => String(record.id) === String(enrollment.student_id))
+      const progress = (data.progress || []).find((record) => String(record.student_id) === String(enrollment.student_id)
+        && String(record.course_id) === String(course.id))
+      return {
+        id: `${course.id}-${enrollment.student_id}`,
+        name: student ? `${student.first_name} ${student.last_name}` : `Student #${enrollment.student_id}`,
+        course,
+        progress: Number(progress?.progress_percentage || 0),
+        status: enrollment.status,
+      }
+    }))
+
+  return (
+    <div className="panel-card">
+      <div className="section-head">
+        <h3>Student Progress</h3>
+        <Link className="btn secondary small" to="/faculty/students">View all students</Link>
+      </div>
+      <div className="progress-list">
+        {rows.slice(0, 5).map((row) => (
+          <div className="faculty-progress-row" key={row.id}>
+            <div><strong>{row.name}</strong><span>{row.course.course_name} · {row.status}</span></div>
+            <div className="faculty-progress-value">
+              <div className="progress-line"><span style={{ width: `${row.progress}%` }} /></div>
+              <strong>{row.progress}%</strong>
+            </div>
+          </div>
+        ))}
+        {!rows.length ? <div className="empty-state">Student enrollments and progress will appear here as learners join your courses.</div> : null}
+      </div>
+    </div>
+  )
+}
+
+function FacultyStudentsPage() {
+  const data = useApp()
+  const dashboard = getFacultyOverview(data)
+
+  return (
+    <PageShell title="Student Progress" subtitle="Monitor enrollment and lesson completion across your assigned courses.">
+      {data.loading ? <p role="status">Loading student progress...</p> : null}
+      {data.error ? <p className="form-message error" role="alert">{data.error}</p> : null}
+      {data.lastSyncedAt ? <p className="live-update-note">Refreshes automatically every 10 seconds · last updated {new Date(data.lastSyncedAt).toLocaleTimeString()}</p> : null}
+      {dashboard.assignedCourses.map((course) => {
+        const courseEnrollments = (data.enrollments || []).filter((item) => String(item.course_id) === String(course.id)
+          && item.status !== 'Unenrolled')
+        return (
+          <section className="panel-card" key={course.id}>
+            <div className="section-head">
+              <h3>{course.course_name}</h3>
+              <Link className="btn secondary small" to={`/faculty/courses/${course.id}`}>Open course</Link>
+            </div>
+            <div className="table-card compact-table">
+              <table>
+                <thead><tr><th>Student</th><th>Enrolled</th><th>Progress</th><th>Status</th></tr></thead>
+                <tbody>
+                  {courseEnrollments.map((enrollment) => {
+                    const studentRecord = (data.students || []).find((item) => String(item.id) === String(enrollment.student_id))
+                    const progressRecord = (data.progress || []).find((item) => String(item.student_id) === String(enrollment.student_id)
+                      && String(item.course_id) === String(course.id))
+                    const percentage = Number(progressRecord?.progress_percentage || 0)
+                    return (
+                      <tr key={enrollment.id}>
+                        <td>{studentRecord ? `${studentRecord.first_name} ${studentRecord.last_name}` : `Student #${enrollment.student_id}`}</td>
+                        <td>{enrollment.enrollment_date ? new Date(enrollment.enrollment_date).toLocaleDateString() : 'Not recorded'}</td>
+                        <td><div className="faculty-progress-value"><div className="progress-line"><span style={{ width: `${percentage}%` }} /></div><strong>{percentage}%</strong></div></td>
+                        <td>{enrollment.status}</td>
+                      </tr>
+                    )
+                  })}
+                  {!courseEnrollments.length ? <tr><td colSpan="4" className="empty-state">No students are enrolled in this course yet.</td></tr> : null}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )
+      })}
+      {!dashboard.assignedCourses.length ? <div className="empty-state">No courses are assigned to this faculty account yet.</div> : null}
     </PageShell>
   )
 }
@@ -729,7 +912,8 @@ function FacultyCoursePage() {
   const modules = (data.modules || [])
     .filter((item) => String(item.course_id) === String(id))
     .sort((left, right) => Number(left.module_number || 0) - Number(right.module_number || 0))
-  const enrollments = (data.enrollments || []).filter((item) => String(item.course_id) === String(id))
+  const enrollments = (data.enrollments || []).filter((item) => String(item.course_id) === String(id)
+    && item.status !== 'Unenrolled')
   const [form, setForm] = useState({ title: '', description: '', notes: '', video_link: '' })
   const [message, setMessage] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -772,6 +956,7 @@ function FacultyCoursePage() {
     <PageShell title={course.course_name || course.cname} subtitle={`${course.course_code || 'Course'} · ${course.department || dashboard.faculty.department}`}>
       {data.error ? <p className="form-message error" role="alert">{data.error}</p> : null}
       {message ? <p className={`form-message ${message.type}`} role="status">{message.text}</p> : null}
+      {data.lastSyncedAt ? <p className="live-update-note">Student activity refreshes automatically · last updated {new Date(data.lastSyncedAt).toLocaleTimeString()}</p> : null}
       <div className="course-workspace-summary">
         <div><strong>{enrollments.length}</strong><span>Enrolled students</span></div>
         <div><strong>{modules.length}</strong><span>Published modules</span></div>
@@ -806,13 +991,13 @@ function FacultyCoursePage() {
         <div className="section-head"><h3>Student Roster</h3></div>
         <div className="table-card compact-table">
           <table>
-            <thead><tr><th>Student</th><th>Email</th><th>Enrolled</th><th>Progress</th></tr></thead>
+            <thead><tr><th>Student</th><th>Enrolled</th><th>Progress</th><th>Status</th></tr></thead>
             <tbody>
               {enrollments.map((enrollment) => {
                 const student = (data.students || []).find((item) => String(item.id) === String(enrollment.student_id))
-                const user = (data.users || []).find((item) => String(item.id) === String(student?.user_id))
                 const courseProgress = (data.progress || []).find((item) => String(item.student_id) === String(enrollment.student_id) && String(item.course_id) === String(id))
-                return <tr key={enrollment.id}><td>{student ? `${student.first_name} ${student.last_name}` : `Student #${enrollment.student_id}`}</td><td>{user?.email || 'Not available'}</td><td>{enrollment.enrollment_date ? new Date(enrollment.enrollment_date).toLocaleDateString() : 'Not recorded'}</td><td>{Number(courseProgress?.progress_percentage || 0)}%</td></tr>
+                const percentage = Number(courseProgress?.progress_percentage || 0)
+                return <tr key={enrollment.id}><td>{student ? `${student.first_name} ${student.last_name}` : `Student #${enrollment.student_id}`}</td><td>{enrollment.enrollment_date ? new Date(enrollment.enrollment_date).toLocaleDateString() : 'Not recorded'}</td><td><div className="faculty-progress-value"><div className="progress-line"><span style={{ width: `${percentage}%` }} /></div><strong>{percentage}%</strong></div></td><td>{enrollment.status}</td></tr>
               })}
               {!enrollments.length ? <tr><td colSpan="4" className="empty-state">No students are enrolled in this course yet.</td></tr> : null}
             </tbody>
@@ -1195,13 +1380,30 @@ function EditCoursePage() {
 }
 
 function MyCoursesPage() {
-  const { courses: allCourses = [], enrollments = [], progress = [], student, loading, error } = useApp()
+  const { courses: allCourses = [], enrollments = [], progress = [], student, unenroll, loading, error } = useApp()
+  const [message, setMessage] = useState('')
+  const [pendingCourseId, setPendingCourseId] = useState(null)
   const courses = getStudentCourses(student, allCourses, enrollments, progress)
 
+  const handleUnenroll = async (courseId) => {
+    if (!window.confirm('Are you sure you want to unenroll from this course? Your saved progress will be kept.')) return
+    setPendingCourseId(courseId)
+    setMessage('')
+    try {
+      const result = await unenroll(courseId)
+      setMessage(result.message)
+    } catch (unenrollError) {
+      setMessage(unenrollError.message)
+    } finally {
+      setPendingCourseId(null)
+    }
+  }
+
   return (
-    <PageShell title="My Courses" subtitle="Your active course enrollments.">
+    <PageShell title="My Courses" subtitle="Your current course enrollments and saved progress.">
       {loading ? <p>Loading your courses...</p> : null}
       {error ? <p className="form-message error" role="alert">{error}</p> : null}
+      {message ? <p className="form-message success" role="status">{message}</p> : null}
       <div className="card-grid">
         {!loading && courses.length === 0 ? <div className="empty-state">You have not registered for any courses yet.</div> : null}
         {courses.map((course) => (
@@ -1211,7 +1413,18 @@ function MyCoursesPage() {
             <div className="progress-line">
               <span style={{ width: `${course.progress || 0}%` }} />
             </div>
-            <Link className="btn primary" to={`/courses/${course.id}/content`}>Continue</Link>
+            <div className="card-actions">
+              <Link className="btn primary" to={`/courses/${course.id}/content`}>Continue</Link>
+              <button
+                className="btn danger small"
+                type="button"
+                onClick={() => handleUnenroll(course.id)}
+                disabled={pendingCourseId === course.id || course.enrollmentStatus === 'Completed'}
+                title={course.enrollmentStatus === 'Completed' ? 'Completed courses cannot be unenrolled.' : undefined}
+              >
+                {pendingCourseId === course.id ? 'Unenrolling...' : 'Unenroll'}
+              </button>
+            </div>
           </div>
         ))}
       </div>
@@ -1241,9 +1454,18 @@ function NotificationsPage() {
 function ProgressPage() {
   const { courses: allCourses = [], enrollments = [], progress = [], student } = useApp()
   const courses = getStudentCourses(student, allCourses, enrollments, progress)
+  const completedCourses = courses.filter((course) => course.progress >= 100).length
+  const averageProgress = courses.length
+    ? Math.round(courses.reduce((total, course) => total + course.progress, 0) / courses.length)
+    : 0
 
   return (
     <PageShell title="Progress" subtitle="See how far you have advanced across your enrolled programs.">
+      <div className="stats-grid">
+        <div className="stat-tile"><strong>{courses.length}</strong><span>Total courses</span></div>
+        <div className="stat-tile"><strong>{completedCourses}</strong><span>Completed courses</span></div>
+        <div className="stat-tile"><strong>{averageProgress}%</strong><span>Average progress</span></div>
+      </div>
       <div className="progress-list">
         {courses.map((course) => {
           const value = course.progress || 0
@@ -1252,13 +1474,18 @@ function ProgressPage() {
               <div>
                 <h3>{course.course_name}</h3>
                 <p>{course.instructor}</p>
+                <span className={`badge ${value >= 100 ? 'completed-badge' : ''}`}>
+                  {value >= 100 ? 'Completed' : 'In Progress'}
+                </span>
               </div>
               <div className="progress-meta">
                 <div className="progress-line">
                   <span style={{ width: `${value}%` }} />
                 </div>
                 <strong>{value}%</strong>
+                <span>{course.completed_modules || 0} of {course.total_modules || 0} lessons</span>
               </div>
+              {value >= 100 ? <Link className="btn primary small" to="/certificate">Get certificate</Link> : <Link className="btn secondary small" to={`/courses/${course.id}/content`}>Continue lessons</Link>}
             </div>
           )
         })}
@@ -1268,20 +1495,81 @@ function ProgressPage() {
   )
 }
 
+function downloadCertificate(course, student) {
+  const canvas = document.createElement('canvas')
+  canvas.width = 1600
+  canvas.height = 1100
+  const context = canvas.getContext('2d')
+  if (!context) throw new Error('Your browser could not create the certificate image.')
+
+  context.fillStyle = '#f8fafc'
+  context.fillRect(0, 0, canvas.width, canvas.height)
+  context.strokeStyle = '#174b7a'
+  context.lineWidth = 24
+  context.strokeRect(36, 36, canvas.width - 72, canvas.height - 72)
+  context.strokeStyle = '#0dcaf0'
+  context.lineWidth = 4
+  context.strokeRect(68, 68, canvas.width - 136, canvas.height - 136)
+  context.textAlign = 'center'
+  context.fillStyle = '#174b7a'
+  context.font = 'bold 48px Georgia, serif'
+  context.fillText('COURSEHUB LEARNING', canvas.width / 2, 220)
+  context.fillStyle = '#0f172a'
+  context.font = 'bold 82px Georgia, serif'
+  context.fillText('Certificate of Completion', canvas.width / 2, 390)
+  context.font = '32px Arial, sans-serif'
+  context.fillStyle = '#475569'
+  context.fillText('This certificate is awarded to', canvas.width / 2, 520)
+  context.fillStyle = '#174b7a'
+  context.font = 'bold 62px Georgia, serif'
+  context.fillText(`${student?.first_name || ''} ${student?.last_name || ''}`.trim() || 'CourseHub Learner', canvas.width / 2, 630)
+  context.fillStyle = '#475569'
+  context.font = '30px Arial, sans-serif'
+  context.fillText('for successfully completing', canvas.width / 2, 720)
+  context.fillStyle = '#0f172a'
+  context.font = 'bold 44px Arial, sans-serif'
+  context.fillText(course.course_name, canvas.width / 2, 800, 1320)
+  context.font = '28px Arial, sans-serif'
+  context.fillStyle = '#475569'
+  context.fillText(`Course ${course.course_code || ''} · Completed ${new Date().toLocaleDateString()}`, canvas.width / 2, 900)
+
+  const link = document.createElement('a')
+  const courseSlug = course.course_name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+  link.download = `coursehub-${courseSlug}-certificate.png`
+  link.href = canvas.toDataURL('image/png')
+  document.body.append(link)
+  link.click()
+  link.remove()
+}
+
 function CertificatePage() {
   const { courses: allCourses = [], enrollments = [], progress = [], student } = useApp()
   const courses = getStudentCourses(student, allCourses, enrollments, progress).filter((course) => course.progress >= 100)
+  const [message, setMessage] = useState('')
+
+  const handleDownload = (course) => {
+    try {
+      downloadCertificate(course, student)
+      setMessage(`${course.course_name} certificate image is ready. Your browser should start downloading it.`)
+    } catch (error) {
+      setMessage(error.message)
+    }
+  }
 
   return (
-    <PageShell title="Certificate" subtitle="Your achievement record is ready.">
-      {courses.length ? <div className="certificate-card">
-        <p className="eyebrow accent">CourseHub Certification</p>
-        <h2>Completion Certificate</h2>
-        <p>Completed courses are listed below.</p>
-        <div className="certificate-meta">
-          {courses.map((course) => <span key={course.id}>Course: {course.course_name}</span>)}
-        </div>
-      </div> : <div className="empty-state">No completed courses are available for certificates yet.</div>}
+    <PageShell title="Certificates" subtitle="Download a certificate for every course you have completed.">
+      {message ? <p className="form-message success" role="status">{message}</p> : null}
+      {courses.length ? <div className="card-grid">
+        {courses.map((course) => (
+          <div className="certificate-card" key={course.id}>
+            <p className="eyebrow accent">CourseHub Certification</p>
+            <h2>Completion Certificate</h2>
+            <p>This certificate recognizes {student?.first_name} {student?.last_name} for completing:</p>
+            <div className="certificate-meta"><strong>{course.course_name}</strong><span>Course code: {course.course_code}</span></div>
+            <button className="btn primary" type="button" onClick={() => handleDownload(course)}>Download certificate (PNG)</button>
+          </div>
+        ))}
+      </div> : <div className="empty-state">No completed courses are available for certificates yet. Complete every lesson in an enrolled course to earn one.</div>}
     </PageShell>
   )
 }
@@ -1593,6 +1881,7 @@ function App() {
             <Route path="/student/dashboard" element={<RoleRoute allowedRoles={['3']}><StudentDashboardPage /></RoleRoute>} />
             <Route path="/faculty/dashboard" element={<RoleRoute allowedRoles={['2']}><FacultyDashboardPage /></RoleRoute>} />
             <Route path="/faculty/courses" element={<RoleRoute allowedRoles={['2']}><FacultyCoursesPage /></RoleRoute>} />
+            <Route path="/faculty/students" element={<RoleRoute allowedRoles={['2']}><FacultyStudentsPage /></RoleRoute>} />
             <Route path="/faculty/courses/:id" element={<RoleRoute allowedRoles={['2']}><FacultyCoursePage /></RoleRoute>} />
             <Route path="/faculty/profile" element={<RoleRoute allowedRoles={['2']}><FacultyProfilePage /></RoleRoute>} />
             <Route path="/admin/dashboard" element={<RoleRoute allowedRoles={['1']}><AdminDashboardPage /></RoleRoute>} />

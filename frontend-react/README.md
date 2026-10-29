@@ -23,3 +23,7 @@ The frontend is at `http://localhost:5173`; Express listens at `http://localhost
 Before starting the backend, set `JWT_SECRET` in `backend/.env` to a generated secret. See [backend/README.md](../backend/README.md) for setup and protected endpoint roles.
 
 Seeded demo users all use password `demo123`. See [mockapi/README.md](../mockapi/README.md) for account emails and limitations.
+
+Faculty can publish course modules with YouTube or direct video links, review enrolled students' progress, and see updates refresh automatically every 10 seconds. Students can watch lesson videos, mark lessons complete, and download a PNG certificate after completing every module in a course.
+
+Students can also unenroll from active courses on My Courses. Unenrolling preserves their lesson history and progress; completed courses remain in their records and cannot be unenrolled.

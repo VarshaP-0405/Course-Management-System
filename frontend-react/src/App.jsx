@@ -10,6 +10,7 @@ import {
 } from 'react-router-dom'
 import { useApp } from './useApp.js'
 import { request } from './api.js'
+import { MessagesPage, NotificationsPage } from './MessagingPages.jsx'
 import './App.css'
 
 const databaseCollections = [
@@ -61,6 +62,7 @@ const navItems = [
 
 const adminNavItems = [
   { label: 'Admin Dashboard', to: '/admin/dashboard' },
+  { label: 'Messages', to: '/messages' },
   { label: 'Database', to: '/admin/database' },
   { label: 'Students', to: '/students' },
   { label: 'Add Faculty', to: '/add-faculty' },
@@ -70,6 +72,7 @@ const adminNavItems = [
 
 const facultyNavItems = [
   { label: 'Faculty Dashboard', to: '/faculty/dashboard' },
+  { label: 'Messages', to: '/messages' },
   { label: 'My Courses', to: '/faculty/courses' },
   { label: 'Students', to: '/faculty/students' },
   { label: 'Profile', to: '/faculty/profile' },
@@ -77,6 +80,7 @@ const facultyNavItems = [
 
 const studentNavItems = [
   { label: 'Student Dashboard', to: '/student/dashboard' },
+  { label: 'Messages', to: '/messages' },
   { label: 'Courses', to: '/browse-courses' },
   { label: 'My Courses', to: '/my-courses' },
   { label: 'Progress', to: '/progress' },
@@ -377,11 +381,11 @@ function RegisterPage() {
         </label>
         <label>
           Password
-          <input type="password" name="password" value={form.password} onChange={handleChange} placeholder="Password" minLength={8} maxLength={72} required />
+          <input type="password" name="password" value={form.password} onChange={handleChange} placeholder="At least 12 characters" minLength={12} maxLength={72} required />
         </label>
         <label>
           Confirm password
-          <input type="password" name="confirm_password" value={form.confirm_password} onChange={handleChange} placeholder="Confirm password" minLength={8} maxLength={72} required />
+          <input type="password" name="confirm_password" value={form.confirm_password} onChange={handleChange} placeholder="Confirm password" minLength={12} maxLength={72} required />
         </label>
         {message ? <p className="form-message success">{message}</p> : null}
         <button className="btn primary full" type="submit">Register</button>
@@ -1170,7 +1174,7 @@ function AddFacultyPage() {
           </label>
           <label>
             Temporary password
-            <input name="password" value={form.password} onChange={handleChange} type="password" placeholder="Password" required />
+            <input name="password" value={form.password} onChange={handleChange} type="password" placeholder="At least 12 characters" minLength={12} maxLength={72} required />
           </label>
           {message ? <p className="form-message success full-width">{message}</p> : null}
           <button className="btn primary full" type="submit">Save Faculty</button>
@@ -1427,25 +1431,6 @@ function MyCoursesPage() {
             </div>
           </div>
         ))}
-      </div>
-    </PageShell>
-  )
-}
-
-function NotificationsPage() {
-  const { notifications: allNotifications = [], student } = useApp()
-  const notifications = allNotifications.filter((item) => String(item.student_id) === String(student?.id))
-
-  return (
-    <PageShell title="Notifications" subtitle="Recent updates from your courses and instructors.">
-      <div className="notification-list">
-        {notifications.length ? notifications.map((item) => (
-          <div key={item.id} className="notification-item">
-            <strong>{item.title}</strong>
-            <p>{item.message}</p>
-            <span>{item.is_read ? 'Read' : 'New'}</span>
-          </div>
-        )) : <div className="empty-state">No notifications available.</div>}
       </div>
     </PageShell>
   )
@@ -1892,6 +1877,7 @@ function App() {
             <Route path="/edit-course/:id" element={<RoleRoute allowedRoles={['1']}><EditCoursePage /></RoleRoute>} />
             <Route path="/my-courses" element={<RoleRoute allowedRoles={['3']}><MyCoursesPage /></RoleRoute>} />
             <Route path="/notifications" element={<RoleRoute allowedRoles={['3']}><NotificationsPage /></RoleRoute>} />
+            <Route path="/messages" element={<RoleRoute allowedRoles={['1', '2', '3']}><MessagesPage /></RoleRoute>} />
             <Route path="/progress" element={<RoleRoute allowedRoles={['3']}><ProgressPage /></RoleRoute>} />
             <Route path="/certificate" element={<RoleRoute allowedRoles={['3']}><CertificatePage /></RoleRoute>} />
             <Route path="/about" element={<AboutPage />} />

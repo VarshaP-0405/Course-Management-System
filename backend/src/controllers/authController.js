@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { config } from '../config/env.js'
-import { listRecords, registerStudentAccount } from '../services/databaseService.js'
+import { findUserByEmail, listRecords, registerStudentAccount } from '../services/databaseService.js'
 import { validateLogin, validateRegistration } from '../services/validationService.js'
 
 function publicUser(user) {
@@ -14,14 +14,11 @@ export async function login(request, response, next) {
     const { email, password, role } = request.body || {}
     validateLogin(request.body)
 
-    const users = await listRecords('users')
-    const user = users.find((record) => record.email?.trim().toLowerCase() === email.trim().toLowerCase()
-      && (role === undefined || String(record.role) === String(role)))
+    const user = await findUserByEmail(email)
 
     const isBcryptHash = user && /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(user.password)
-    const passwordMatches = user && (isBcryptHash
-      ? await bcrypt.compare(password, user.password)
-      : user.password === password)
+    const passwordMatches = user && isBcryptHash && await bcrypt.compare(password, user.password)
+      && (role === undefined || String(user.role) === String(role))
     if (!user || !passwordMatches) {
       return response.status(401).json({ message: 'Email, password, or role is incorrect.' })
     }

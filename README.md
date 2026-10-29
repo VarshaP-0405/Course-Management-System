@@ -12,6 +12,7 @@ Students can:
 - enroll in courses
 - track progress and completed modules
 - view notifications and certificates
+- exchange real-time direct messages
 
 Admins can:
 - manage courses
@@ -31,6 +32,7 @@ Admins can:
 - Faculty course workspaces with student progress monitoring
 - Downloadable PNG certificates after course completion
 - Notifications and certificate pages
+- Authenticated real-time chat and notifications with Socket.IO
 - Responsive React-based frontend with routing
 - Context-managed authentication, course, enrollment, and student state
 - JSON-backed collections served through the Express API
@@ -42,6 +44,7 @@ Admins can:
 - Local data store: JSON file (`mockapi/db.json`)
 - State: React Context API
 - Authentication: Express API with JWT sessions
+- Real-time: Socket.IO with authenticated private user rooms
 - Version control: Git and GitHub
 
 ## Project Structure
@@ -134,7 +137,7 @@ In terminal 2, from `frontend-react/`:
 npm run dev
 ```
 
-Open the local URL printed by Vite, normally <http://localhost:5173>. Keep both terminals running while using the app. Vite proxies API requests to the backend on port `3002`.
+Open the local URL printed by Vite, normally <http://localhost:5173>. Keep both terminals running while using the app. Vite proxies API requests and Socket.IO connections to the backend on port `3002`.
 
 ### 6. Sign in
 
@@ -160,12 +163,13 @@ For backend environment settings, API endpoints, authorization, and data constra
 
 ## API Overview
 
-The backend is served at `http://localhost:3002`. Health endpoints are `GET /` and `GET /api/health`. Authentication endpoints include `POST /api/auth/register`, `POST /api/auth/login`, and `GET /api/auth/me`. Login returns a JWT used for protected endpoints; student records are scoped to the signed-in student and collection writes are role-restricted. Course and module reads remain public for course discovery. Collection CRUD endpoints are available for the collections used by the React pages. See [backend/README.md](backend/README.md) for endpoint details, request fields, permissions, and API tests.
+The backend is served at `http://localhost:3002`. Health endpoints are `GET /` and `GET /api/health`. Authentication endpoints include `POST /api/auth/register`, `POST /api/auth/login`, and `GET /api/auth/me`. Login returns a JWT used for protected endpoints; student records are scoped to the signed-in student and collection writes are role-restricted. Course and module reads remain public for course discovery. Messages use authenticated Socket.IO connections and participant-scoped history at `/api/messages/:userId`. See [backend/README.md](backend/README.md) for endpoint details, request fields, permissions, and API tests.
 
 ## Available Routes in React
 - Home: /
 - Login: /login
 - Register: /register
+- Messages: /messages
 - Browse Courses: /browse-courses
 - Student Dashboard: /student/dashboard
 - Faculty Dashboard: /faculty/dashboard
@@ -197,11 +201,16 @@ npm run build
 
 ## Notes
 - Express exposes collection endpoints such as `/api/courses`, `/api/students`, and `/api/enrollments`, along with legacy and versioned aliases.
-- `db.json` is writable mock storage, not suitable for production or real credentials.
+- `db.json` is writable local storage, not suitable for production account provisioning. Stored user passwords are bcrypt hashes; the seeded `demo123` credentials are for local testing only.
 - The app uses a client-side React SPA with navigation handled by React Router.
 
-## Future Improvements
-- Replace local JSON-file storage and seeded demo accounts with production-grade storage and account provisioning before deployment.
+## Deployment readiness
+
+The backend supports `DATABASE_PROVIDER=mongodb` with `MONGO_URI`, JWT configuration, a hosting-platform `PORT`, origin-restricted CORS, and one HTTP server shared by Express and Socket.IO. A Render Blueprint is provided in `render.yaml`; the frontend includes a Vercel SPA fallback in `frontend-react/vercel.json`.
+
+For a hosted setup, provision MongoDB Atlas, configure a Render web service from `backend/`, and deploy `frontend-react/` to Vercel. Set `DATABASE_PROVIDER=mongodb`, `MONGO_URI`, `JWT_SECRET`, `JWT_EXPIRES_IN`, and `CORS_ORIGIN` on the backend. Set `VITE_API_URL` to the backend origin and `VITE_SOCKET_URL` to the same backend origin on the frontend. Never expose backend secrets to Vite. Replace demo accounts before public use.
+
+No live deployment URLs are listed because the hosting accounts, production database, and deployment credentials have not been provided. Follow [backend/README.md](backend/README.md) for the exact API, security, and deployment configuration.
 
 ## License
 This project is intended for educational and academic use.

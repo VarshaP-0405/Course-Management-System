@@ -116,6 +116,8 @@
 .form-card,
 .table-card,
 .notification-item,
+.chat-card,
+.chat-message,
 .certificate-card,
 .stat-tile,
 .mini-card,
@@ -140,6 +142,7 @@
 .hero-card p,
 .course-card p,
 .notification-item p,
+.chat-message p,
 .progress-row p,
 .detail-card p,
 .feature-card p,
@@ -154,6 +157,45 @@
 .label,
 label {
   color: rgba(255, 255, 255, 0.82);
+}
+
+.chat-card {
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+}
+
+.chat-form {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.chat-form label {
+  flex: 1;
+  min-width: min(100%, 240px);
+}
+
+.chat-history {
+  display: grid;
+  gap: 12px;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.chat-message {
+  padding: 14px 18px;
+}
+
+.chat-message p {
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
+
+.chat-message time {
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.8rem;
 }
 
 .cta-row {

@@ -7,11 +7,13 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
+import { io as createSocketClient } from 'socket.io-client'
 import { after, before, test } from 'node:test'
 
 const root = resolve(fileURLToPath(new URL('../../', import.meta.url)))
 let temporaryDirectory
 let server
+let socketServer
 let baseUrl
 let adminToken
 let studentToken
@@ -21,6 +23,7 @@ before(async () => {
   const source = await readFile(join(root, 'mockapi/db.json'), 'utf8')
   const dataFile = join(temporaryDirectory, 'db.json')
   await writeFile(dataFile, source)
+  process.env.DATABASE_PROVIDER = 'file'
   process.env.DATA_FILE = dataFile
   process.env.JWT_SECRET = 'test-jwt-secret-for-course-management-1234567890'
 
@@ -41,7 +44,9 @@ before(async () => {
 })
 
 after(async () => {
-  if (server?.listening) {
+  if (socketServer) {
+    await new Promise((resolve) => socketServer.close(resolve))
+  } else if (server?.listening) {
     server.close()
     await once(server, 'close')
   }
@@ -64,8 +69,22 @@ async function request(path, { body, token = adminToken, ...options } = {}) {
 
 test('student, course, authentication, and page collection endpoints', async (t) => {
   await t.test('serves JSON for all page collections and keeps legacy routes compatible', async () => {
+    const securityHeaders = await fetch(`${baseUrl}/api/health`)
+    assert.equal(securityHeaders.headers.get('x-content-type-options'), 'nosniff')
+    const rejectedOrigin = await fetch(`${baseUrl}/api/health`, {
+      headers: { Origin: 'https://untrusted.example.test' },
+    })
+    assert.equal(rejectedOrigin.status, 403)
+
     assert.equal((await request('/api/courses', { token: null })).status, 200)
     assert.equal((await request('/api/modules', { token: null })).status, 200)
+    const pagedCourses = await request('/api/courses?page=1&limit=2', { token: null })
+    assert.equal(pagedCourses.status, 200)
+    assert.equal(pagedCourses.data.records.length, 2)
+    assert.equal(pagedCourses.data.pagination.total, 4)
+    assert.equal((await request('/api/courses?page=0', { token: null })).status, 400)
+    assert.equal((await request('/api/courses?page=1&limit=101', { token: null }))
+      .data.pagination.limit, 100)
     assert.equal((await request('/api/v1/courses', { token: null })).status, 200)
     assert.equal((await request('/api/v1/courses/1', { token: null })).status, 200)
     const anonymous = await request('/api/students', { token: null })
@@ -82,7 +101,7 @@ test('student, course, authentication, and page collection endpoints', async (t)
 
     const collections = [
       'users', 'students', 'faculty', 'courses', 'course_faculty',
-      'modules', 'enrollments', 'progress', 'notifications', 'reviews',
+      'modules', 'enrollments', 'progress', 'notifications', 'reviews', 'messages',
     ]
     for (const collection of collections) {
       const { status, data } = await request(`/api/${collection}`)
@@ -99,10 +118,13 @@ test('student, course, authentication, and page collection endpoints', async (t)
 
     const user = await request('/api/users', {
       method: 'POST',
-      body: { email: 'api-test-faculty@example.test', password: 'faculty123', role: 2 },
+      body: { email: 'api-test-faculty@example.test', password: 'FacultyPassword123', role: 2 },
     })
     assert.equal(user.status, 201)
     assert.equal(Object.hasOwn(user.data, 'password'), false)
+    const persistedDatabase = JSON.parse(await readFile(join(temporaryDirectory, 'db.json'), 'utf8'))
+    const savedFacultyAccount = persistedDatabase.users.find((record) => record.id === user.data.id)
+    assert.equal(await bcrypt.compare('FacultyPassword123', savedFacultyAccount.password), true)
 
     const faculty = await request('/api/faculty', {
       method: 'POST',
@@ -124,6 +146,16 @@ test('student, course, authentication, and page collection endpoints', async (t)
       body: { email: 'not-an-email', password: 'short', first_name: '', last_name: 'Student' },
     })
     assert.equal(invalid.status, 400)
+    const shortPassword = await request('/api/auth/register', {
+      method: 'POST',
+      body: {
+        email: 'short-password@example.test',
+        password: 'elevenchars',
+        first_name: 'Short',
+        last_name: 'Password',
+      },
+    })
+    assert.equal(shortPassword.status, 400)
     const tooLongPassword = await request('/api/auth/register', {
       method: 'POST',
       body: {
@@ -139,7 +171,7 @@ test('student, course, authentication, and page collection endpoints', async (t)
       method: 'POST',
       body: {
         email: 'api-test-student@example.test',
-        password: 'testpass123',
+        password: 'testpass1234',
         first_name: 'Api',
         last_name: 'Student',
         department: 'Engineering',
@@ -162,14 +194,14 @@ test('student, course, authentication, and page collection endpoints', async (t)
     assert.equal(versionedRegistration.status, 201)
     const persistedDatabase = JSON.parse(await readFile(join(temporaryDirectory, 'db.json'), 'utf8'))
     const persistedUser = persistedDatabase.users.find((record) => record.id === registration.data.user.id)
-    assert.notEqual(persistedUser.password, 'testpass123')
-    assert.equal(await bcrypt.compare('testpass123', persistedUser.password), true)
+    assert.notEqual(persistedUser.password, 'testpass1234')
+    assert.equal(await bcrypt.compare('testpass1234', persistedUser.password), true)
 
     const duplicate = await request('/api/auth/register', {
       method: 'POST',
       body: {
         email: 'API-TEST-STUDENT@example.test',
-        password: 'testpass123',
+        password: 'testpass1234',
         first_name: 'Duplicate',
         last_name: 'Student',
       },
@@ -178,7 +210,7 @@ test('student, course, authentication, and page collection endpoints', async (t)
 
     const login = await request('/api/auth/login', {
       method: 'POST',
-      body: { email: 'api-test-student@example.test', password: 'testpass123', role: 3 },
+      body: { email: 'api-test-student@example.test', password: 'testpass1234', role: 3 },
     })
     assert.equal(login.status, 200)
     assert.equal(login.data.id, registration.data.user.id)
@@ -204,6 +236,12 @@ test('student, course, authentication, and page collection endpoints', async (t)
     const student = await request(`/api/students/${registration.data.student.id}`, { token: studentToken })
     assert.equal(student.status, 200)
     assert.equal(student.data.first_name, 'Api')
+    assert.equal((await request('/api/students/1', { token: studentToken })).status, 404)
+    assert.equal((await request('/api/students/1', {
+      method: 'PATCH',
+      token: studentToken,
+      body: { first_name: 'Unauthorized' },
+    })).status, 403)
 
     const privateFaculty = await request('/api/faculty', { token: studentToken })
     assert.equal(privateFaculty.status, 403)
@@ -440,7 +478,7 @@ test('student, course, authentication, and page collection endpoints', async (t)
   await t.test('enforces unique keys, foreign keys, and restricted deletes', async () => {
     const duplicateEmail = await request('/api/users', {
       method: 'POST',
-      body: { email: 'VARSHa@gmail.com', password: 'another123', role: 3 },
+      body: { email: 'VARSHa@gmail.com', password: 'anotherPassword123', role: 3 },
     })
     assert.equal(duplicateEmail.status, 409)
 
@@ -536,5 +574,120 @@ test('student, course, authentication, and page collection endpoints', async (t)
     const missingRoute = await request('/api/not-a-collection')
     assert.equal(missingRoute.status, 404)
     assert.equal(typeof missingRoute.data.message, 'string')
+  })
+
+  await t.test('authenticates sockets and persists private messages and notifications', async () => {
+    const { initializeSocket } = await import('../src/services/socketService.js')
+    socketServer = initializeSocket(server)
+
+    const recipientLogin = await request('/api/auth/login', {
+      method: 'POST',
+      token: null,
+      body: { email: 'varsha@gmail.com', password: 'demo123', role: 3 },
+    })
+    assert.equal(recipientLogin.status, 200)
+
+    const outsiderRegistration = await request('/api/auth/register', {
+      method: 'POST',
+      token: null,
+      body: {
+        email: 'outsider@example.test',
+        password: 'outsiderPassword123',
+        first_name: 'Outside',
+        last_name: 'Learner',
+      },
+    })
+    assert.equal(outsiderRegistration.status, 201)
+    const outsiderLogin = await request('/api/auth/login', {
+      method: 'POST',
+      token: null,
+      body: {
+        email: 'outsider@example.test',
+        password: 'outsiderPassword123',
+        role: 3,
+      },
+    })
+    assert.equal(outsiderLogin.status, 200)
+
+    const unauthenticated = createSocketClient(baseUrl, {
+      transports: ['websocket'],
+      reconnection: false,
+    })
+    const unauthenticatedError = once(unauthenticated, 'connect_error')
+    unauthenticated.connect()
+    const [socketError] = await unauthenticatedError
+    assert.match(socketError.message, /Authentication required/)
+    unauthenticated.disconnect()
+
+    const senderSocket = createSocketClient(baseUrl, {
+      auth: { token: studentToken },
+      transports: ['websocket'],
+      reconnection: false,
+    })
+    const recipientSocket = createSocketClient(baseUrl, {
+      auth: { token: recipientLogin.data.token },
+      transports: ['websocket'],
+      reconnection: false,
+    })
+    const senderConnected = once(senderSocket, 'connect')
+    const recipientConnected = once(recipientSocket, 'connect')
+    senderSocket.connect()
+    recipientSocket.connect()
+    await Promise.all([senderConnected, recipientConnected])
+
+    const receivedMessage = once(recipientSocket, 'receive_message')
+    const receivedNotification = once(recipientSocket, 'new_notification')
+    const acknowledgement = new Promise((resolve) => {
+      senderSocket.emit('send_message', {
+        recipientId: 2,
+        text: 'Real-time test message',
+      }, resolve)
+    })
+    const [ack, [message], [notification]] = await Promise.all([
+      acknowledgement,
+      receivedMessage,
+      receivedNotification,
+    ])
+    assert.equal(ack.success, true)
+    assert.equal(message.text, 'Real-time test message')
+    assert.equal(notification.title, 'New message')
+
+    const history = await request('/api/messages/2', { token: studentToken })
+    assert.equal(history.status, 200)
+    assert.ok(history.data.messages.some((item) => item.text === 'Real-time test message'))
+    const hiddenHistory = await request('/api/messages/2', { token: outsiderLogin.data.token })
+    assert.equal(hiddenHistory.status, 200)
+    assert.equal(hiddenHistory.data.messages.length, 0)
+    assert.equal((await request('/api/messages', { token: studentToken })).status, 403)
+    assert.equal((await request('/api/messages/not-a-user', { token: studentToken })).status, 400)
+
+    const notifications = await request('/api/notifications', { token: recipientLogin.data.token })
+    const messageNotification = notifications.data.find((item) => item.id === notification.id)
+    assert.ok(messageNotification)
+    const read = await request(`/api/notifications/${notification.id}/read`, {
+      method: 'PATCH',
+      token: recipientLogin.data.token,
+    })
+    assert.equal(read.status, 200)
+    assert.equal(read.data.notification.is_read, true)
+    assert.equal((await request(`/api/notifications/${notification.id}/read`, {
+      method: 'PATCH',
+      token: studentToken,
+    })).status, 404)
+
+    senderSocket.disconnect()
+    recipientSocket.disconnect()
+  })
+
+  await t.test('limits repeated login attempts', async () => {
+    let response
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      response = await request('/api/auth/login', {
+        method: 'POST',
+        token: null,
+        body: { email: 'unknown@example.test', password: 'wrong-password-123' },
+      })
+    }
+    assert.equal(response.status, 429)
   })
 })

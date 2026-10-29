@@ -1,4 +1,4 @@
-import { completeCourseModule as markCourseModuleComplete, createRecord, deleteRecord, findRecord, listRecords, replaceRecord, unenrollStudentFromCourse, updateRecord } from '../services/databaseService.js'
+import { completeCourseModule as markCourseModuleComplete, createRecord, deleteRecord, findRecord, listRecords, listRecordsPage, replaceRecord, unenrollStudentFromCourse, updateRecord } from '../services/databaseService.js'
 import { validateRecord } from '../services/validationService.js'
 
 function publicRecord(record) {
@@ -6,8 +6,41 @@ function publicRecord(record) {
   return account
 }
 
+function parsePositiveQuery(value, fallback, field) {
+  if (value === undefined) return fallback
+  const parsed = Number(value)
+  const maximum = field === 'page' ? 100_000 : Number.MAX_SAFE_INTEGER
+  if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > maximum) {
+    const error = new Error(`${field} must be a positive integer${field === 'page' ? ' no greater than 100000' : ''}.`)
+    error.statusCode = 400
+    throw error
+  }
+  return parsed
+}
+
 export async function getCollection(request, response, next) {
   try {
+    if (request.query.page !== undefined || request.query.limit !== undefined) {
+      const page = parsePositiveQuery(request.query.page, 1, 'page')
+      const requestedLimit = parsePositiveQuery(request.query.limit, 20, 'limit')
+      const limit = Math.min(requestedLimit, 100)
+      const filter = request.user?.role === '3'
+        ? request.params.collection === 'students'
+          ? { user_id: Number(request.user.id) }
+          : { student_id: Number(request.studentId) }
+        : {}
+      const { records, total } = await listRecordsPage(request.params.collection, { page, limit, filter })
+      return response.json({
+        records: records.map(publicRecord),
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      })
+    }
+
     let records = await listRecords(request.params.collection)
     if (request.user?.role === '3') {
       if (request.params.collection === 'students') {
@@ -16,6 +49,7 @@ export async function getCollection(request, response, next) {
         records = records.filter((record) => String(record.student_id) === request.studentId)
       }
     }
+
     return response.json(records.map(publicRecord))
   } catch (error) {
     next(error)

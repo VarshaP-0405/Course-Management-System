@@ -30,6 +30,10 @@ export function authorizeCollection(request, response, next) {
   const { role } = request.user
   const isRead = request.method === 'GET'
 
+  if (collection === 'messages' && role !== '1') {
+    return response.status(403).json({ message: 'Private messages are available only through participant-scoped conversations.' })
+  }
+
   if (collection === 'users' && role !== '1') {
     return response.status(403).json({ message: 'Administrator access is required for user records.' })
   }

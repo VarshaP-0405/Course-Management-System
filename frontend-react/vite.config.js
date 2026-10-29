@@ -12,6 +12,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/mock-api/, ''),
       },
+      '/socket.io': {
+        target: 'http://127.0.0.1:3002',
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
 })

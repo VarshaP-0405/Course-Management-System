@@ -2,14 +2,22 @@ import { readFile, writeFile } from 'node:fs/promises'
 import bcrypt from 'bcryptjs'
 import { config } from '../config/env.js'
 import { ensureRecordCanBeDeleted, validateDatabaseRecord } from './databaseConstraints.js'
+import * as mongo from './mongoDatabaseService.js'
 
 let writeQueue = Promise.resolve()
+const usesMongo = () => config.databaseProvider === 'mongodb'
+
+async function prepareUserPassword(collection, values) {
+  if (collection !== 'users' || !Object.hasOwn(values, 'password')) return values
+  return { ...values, password: await bcrypt.hash(values.password, 12) }
+}
 
 async function loadDatabase() {
   return JSON.parse(await readFile(config.dataFile, 'utf8'))
 }
 
 export async function getDatabase() {
+  if (usesMongo()) return mongo.getDatabase()
   await writeQueue
   return loadDatabase()
 }
@@ -61,15 +69,58 @@ function refreshCourseProgress(database, courseId) {
 }
 
 export async function listRecords(collection) {
+  if (usesMongo()) return mongo.listRecords(collection)
   return collectionFrom(await getDatabase(), collection)
 }
 
+export async function listRecordsPage(collection, { page, limit, filter = {} }) {
+  if (usesMongo()) return mongo.listRecordsPage(collection, { page, limit, filter })
+  const records = collectionFrom(await getDatabase(), collection)
+    .filter((record) => Object.entries(filter).every(([field, value]) => String(record[field]) === String(value)))
+  const start = (page - 1) * limit
+  return {
+    records: records.slice(start, start + limit),
+    total: records.length,
+  }
+}
+
 export async function findRecord(collection, id) {
+  if (usesMongo()) return mongo.findRecord(collection, id)
   const records = collectionFrom(await getDatabase(), collection)
   return records.find((record) => String(record.id) === String(id)) || null
 }
 
+export async function findUserByEmail(email) {
+  if (usesMongo()) return mongo.findUserByEmail(email)
+  const users = await listRecords('users')
+  const normalizedEmail = String(email).trim().toLowerCase()
+  return users.find((user) => user.email?.trim().toLowerCase() === normalizedEmail) || null
+}
+
+export async function listConversationMessages(userId, otherUserId, limit = 100) {
+  if (usesMongo()) return mongo.listConversationMessages(userId, otherUserId, limit)
+  return (await listRecords('messages'))
+    .filter((message) => (
+      (String(message.sender_id) === String(userId)
+        && String(message.recipient_id) === String(otherUserId))
+      || (String(message.sender_id) === String(otherUserId)
+        && String(message.recipient_id) === String(userId))
+    ))
+    .sort((left, right) => new Date(left.created_at) - new Date(right.created_at))
+    .slice(-limit)
+}
+
+export async function listNotifications(studentId, limit = 50) {
+  if (usesMongo()) return mongo.listNotifications(studentId, limit)
+  return (await listRecords('notifications'))
+    .filter((item) => studentId === undefined || String(item.student_id) === String(studentId))
+    .sort((left, right) => new Date(right.created_at || 0) - new Date(left.created_at || 0))
+    .slice(0, limit)
+}
+
 export async function createRecord(collection, values) {
+  if (usesMongo()) return mongo.createRecord(collection, values)
+  const preparedValues = await prepareUserPassword(collection, values)
   return updateDatabase((database) => {
     const records = collectionFrom(database, collection)
     if (collection === 'enrollments') {
@@ -82,7 +133,7 @@ export async function createRecord(collection, values) {
       }
     }
     const nextId = records.reduce((maximum, record) => Math.max(maximum, Number(record.id) || 0), 0) + 1
-    const record = { ...values, id: nextId }
+    const record = { ...preparedValues, id: nextId }
     validateDatabaseRecord(database, collection, record)
     records.push(record)
     if (collection === 'modules') refreshCourseProgress(database, record.course_id)
@@ -91,6 +142,7 @@ export async function createRecord(collection, values) {
 }
 
 export async function unenrollStudentFromCourse(studentId, courseId) {
+  if (usesMongo()) return mongo.unenrollStudentFromCourse(studentId, courseId)
   return updateDatabase((database) => {
     const enrollments = collectionFrom(database, 'enrollments')
     const enrollment = enrollments.find((record) => String(record.student_id) === String(studentId)
@@ -109,6 +161,9 @@ export async function unenrollStudentFromCourse(studentId, courseId) {
 }
 
 export async function registerStudentAccount({ email, password, first_name, last_name, phone = '', department = '' }) {
+  if (usesMongo()) {
+    return mongo.registerStudentAccount({ email, password, first_name, last_name, phone, department })
+  }
   const passwordHash = await bcrypt.hash(password, 12)
   return updateDatabase((database) => {
     const users = collectionFrom(database, 'users')
@@ -138,6 +193,7 @@ export async function registerStudentAccount({ email, password, first_name, last
 }
 
 export async function completeCourseModule(studentId, courseId, moduleId) {
+  if (usesMongo()) return mongo.completeCourseModule(studentId, courseId, moduleId)
   return updateDatabase((database) => {
     const students = collectionFrom(database, 'students')
     const modules = collectionFrom(database, 'modules')
@@ -220,11 +276,13 @@ export async function completeCourseModule(studentId, courseId, moduleId) {
 }
 
 export async function updateRecord(collection, id, values) {
+  if (usesMongo()) return mongo.updateRecord(collection, id, values)
+  const preparedValues = await prepareUserPassword(collection, values)
   return updateDatabase((database) => {
     const records = collectionFrom(database, collection)
     const index = records.findIndex((record) => String(record.id) === String(id))
     if (index < 0) return null
-    const updated = { ...records[index], ...values, id: records[index].id }
+    const updated = { ...records[index], ...preparedValues, id: records[index].id }
     validateDatabaseRecord(database, collection, updated, id)
     records[index] = updated
     return updated
@@ -232,11 +290,13 @@ export async function updateRecord(collection, id, values) {
 }
 
 export async function replaceRecord(collection, id, values) {
+  if (usesMongo()) return mongo.replaceRecord(collection, id, values)
+  const preparedValues = await prepareUserPassword(collection, values)
   return updateDatabase((database) => {
     const records = collectionFrom(database, collection)
     const index = records.findIndex((record) => String(record.id) === String(id))
     if (index < 0) return null
-    const replaced = { ...values, id: records[index].id }
+    const replaced = { ...preparedValues, id: records[index].id }
     validateDatabaseRecord(database, collection, replaced, id)
     records[index] = replaced
     return replaced
@@ -244,6 +304,7 @@ export async function replaceRecord(collection, id, values) {
 }
 
 export async function deleteRecord(collection, id) {
+  if (usesMongo()) return mongo.deleteRecord(collection, id)
   return updateDatabase((database) => {
     const records = collectionFrom(database, collection)
     const index = records.findIndex((record) => String(record.id) === String(id))

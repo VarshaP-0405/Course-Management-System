@@ -32,6 +32,10 @@ const foreignKeys = {
     { field: 'module_id', collection: 'modules' },
   ],
   notifications: [{ field: 'student_id', collection: 'students' }],
+  messages: [
+    { field: 'sender_id', collection: 'users' },
+    { field: 'recipient_id', collection: 'users' },
+  ],
   reviews: [
     { field: 'student_id', collection: 'students' },
     { field: 'course_id', collection: 'courses' },

@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: course-management-api
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 22.12.0
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_PROVIDER
+        value: mongodb
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 1h
+      - key: MONGO_URI
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false

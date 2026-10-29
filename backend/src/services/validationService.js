@@ -81,6 +81,13 @@ const fields = {
     title: 'string',
     message: 'string',
     is_read: 'boolean',
+    created_at: 'string',
+  },
+  messages: {
+    sender_id: 'number',
+    recipient_id: 'number',
+    text: 'messageText',
+    created_at: 'string',
   },
   reviews: {
     student_id: 'number',
@@ -101,6 +108,7 @@ const requiredFields = {
   progress: ['student_id', 'course_id'],
   module_completions: ['student_id', 'module_id'],
   notifications: ['student_id', 'title', 'message'],
+  messages: ['sender_id', 'recipient_id', 'text', 'created_at'],
   reviews: ['student_id', 'course_id', 'rating', 'review'],
 }
 
@@ -124,7 +132,10 @@ function isValidValue(type, value) {
     case 'email':
       return typeof value === 'string' && value.length <= 254 && emailPattern.test(value.trim())
     case 'password':
-      return typeof value === 'string' && value.length >= 6 && value.length <= 128
+      return typeof value === 'string' && value.length >= 12 && value.length <= 72
+        && Buffer.byteLength(value, 'utf8') <= 72
+    case 'messageText':
+      return typeof value === 'string' && value.trim().length > 0 && value.length <= 2000
     case 'role':
       return ['1', '2', '3'].includes(String(value))
     case 'number':
@@ -196,9 +207,9 @@ export function validateRegistration(body) {
     password: body.password,
     role: 3,
   })
-  if (body.password.length < 8 || body.password.length > 72
+  if (body.password.length < 12 || body.password.length > 72
     || Buffer.byteLength(body.password, 'utf8') > 72) {
-    throw validationError('Password must be 8-72 characters and no more than 72 UTF-8 bytes.')
+    throw validationError('Password must be 12-72 characters and no more than 72 UTF-8 bytes.')
   }
 
   for (const name of ['first_name', 'last_name']) {

@@ -1,4 +1,12 @@
-const API_BASE = import.meta.env.VITE_API_BASE || '/mock-api'
+const API_BASE = (import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE || '/mock-api')
+  .replace(/\/+$/, '')
+
+function getApiUrl(apiPath) {
+  if (API_BASE.endsWith('/api/v1') && apiPath.startsWith('api/')) {
+    return `${API_BASE}/${apiPath.replace(/^api(?:\/v1)?\/?/, '')}`
+  }
+  return `${API_BASE}/${apiPath}`
+}
 
 export async function request(path, options = {}) {
   const endpoint = path.replace(/^\//, '')
@@ -11,7 +19,7 @@ export async function request(path, options = {}) {
   }
   let response
   try {
-    response = await fetch(`${API_BASE}/${apiPath}`, {
+    response = await fetch(getApiUrl(apiPath), {
       ...options,
       headers: {
         Accept: 'application/json',

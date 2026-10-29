@@ -20,4 +20,4 @@ All seeded accounts use the mock-only password `demo123`:
 - Faculty: `thangam@gmail.com`
 - Admin: `courseadmin123@gmail.com`
 
-This is a local development mock service, not production authentication or storage. The JSON file contains plain-text demo passwords by design.
+This is a local development data store, not production account provisioning or storage. Demo credentials are for local development only; passwords in the JSON file are bcrypt hashes.

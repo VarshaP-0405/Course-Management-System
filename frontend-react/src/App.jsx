@@ -1283,11 +1283,22 @@ function AddCoursePage() {
     event.preventDefault()
     setMessage('')
     try {
+      const { faculty_id: facultyId, ...courseFields } = form
       const course = await request('courses', {
         method: 'POST',
-        body: JSON.stringify({ ...form, credits: Number(form.credits || 0) }),
+        body: JSON.stringify({ ...courseFields, credits: Number(form.credits || 0) }),
       })
-      if (form.faculty_id) await request('course_faculty', { method: 'POST', body: JSON.stringify({ course_id: course.id, faculty_id: Number(form.faculty_id) }) })
+      if (facultyId) {
+        try {
+          await request('course_faculty', {
+            method: 'POST',
+            body: JSON.stringify({ course_id: course.id, faculty_id: Number(facultyId) }),
+          })
+        } catch (assignmentError) {
+          setMessage(`Course created, but faculty assignment failed: ${assignmentError.message}`)
+          return
+        }
+      }
       await refresh()
       setMessage('Course created and faculty assignment saved.')
       setForm({ course_name: '', course_code: '', instructor: '', duration: '', credits: '', category: '', faculty_id: '', description: '' })

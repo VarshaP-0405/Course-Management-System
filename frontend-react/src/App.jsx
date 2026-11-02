@@ -427,13 +427,21 @@ function ResetPasswordPage() {
 }
 
 function BrowseCoursesPage() {
-  const { courses, loading, error, session } = useApp()
+  const { courses, loading, error, session, refresh } = useApp()
   const isStudent = String(session?.role) === '3'
 
   return (
     <PageShell title="Available Courses" subtitle="Explore the programs and resources you can join.">
       {loading ? <p>Loading courses...</p> : null}
-      {error ? <p className="form-message error" role="alert">{error}</p> : null}
+      {error ? (
+        <div className="form-message error" role="alert">
+          <p>{error}</p>
+          <button className="btn secondary" type="button" onClick={refresh}>Try again</button>
+        </div>
+      ) : null}
+      {!loading && !error && courses.length === 0 ? (
+        <div className="empty-state">No courses are available yet. Please check back later.</div>
+      ) : null}
       <div className="card-grid">
         {courses.map((course) => (
           <div key={course.id} className="course-card">

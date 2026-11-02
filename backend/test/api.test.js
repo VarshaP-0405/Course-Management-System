@@ -26,6 +26,7 @@ before(async () => {
   process.env.DATABASE_PROVIDER = 'file'
   process.env.DATA_FILE = dataFile
   process.env.JWT_SECRET = 'test-jwt-secret-for-course-management-1234567890'
+  process.env.CORS_ORIGIN = 'https://course-management-system-o7t4.vercel.app'
 
   const { default: app } = await import('../src/app.js')
   server = createServer(app)
@@ -75,6 +76,11 @@ test('student, course, authentication, and page collection endpoints', async (t)
       headers: { Origin: 'https://untrusted.example.test' },
     })
     assert.equal(rejectedOrigin.status, 403)
+    const allowedOrigin = await fetch(`${baseUrl}/api/health`, {
+      headers: { Origin: process.env.CORS_ORIGIN },
+    })
+    assert.equal(allowedOrigin.status, 200)
+    assert.equal(allowedOrigin.headers.get('access-control-allow-origin'), process.env.CORS_ORIGIN)
 
     assert.equal((await request('/api/courses', { token: null })).status, 200)
     assert.equal((await request('/api/modules', { token: null })).status, 200)

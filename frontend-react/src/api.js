@@ -29,7 +29,7 @@ export async function request(path, options = {}) {
       },
     })
   } catch {
-    throw new Error('The backend is unavailable. Start it with `cd backend && npm install && npm start`.')
+    throw new Error('Could not reach the API. Check the backend URL and its CORS_ORIGIN setting.')
   }
 
   const data = response.status === 204 ? null : await response.json()

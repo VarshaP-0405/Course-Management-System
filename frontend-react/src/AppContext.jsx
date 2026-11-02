@@ -8,10 +8,18 @@ const collectionsByRole = {
   2: ['students', 'faculty', 'courses', 'course_faculty', 'modules', 'enrollments', 'progress', 'module_completions', 'notifications', 'reviews'],
   3: ['students', 'courses', 'modules', 'enrollments', 'progress', 'module_completions', 'notifications', 'reviews'],
 }
+const initialRecords = Object.fromEntries(
+  [...new Set(Object.values(collectionsByRole).flat())].map((collection) => [collection, []]),
+)
 
 async function loadCollections(role) {
   const collections = collectionsByRole[role] || publicCollections
   const data = await Promise.all(collections.map((name) => getCollection(name)))
+  for (const [index, records] of data.entries()) {
+    if (!Array.isArray(records)) {
+      throw new Error(`The "${collections[index]}" endpoint returned an unexpected response.`)
+    }
+  }
   return Object.fromEntries(collections.map((name, index) => [name, data[index]]))
 }
 
@@ -26,7 +34,7 @@ function getStoredSession() {
 }
 
 export function AppProvider({ children }) {
-  const [records, setRecords] = useState({})
+  const [records, setRecords] = useState(initialRecords)
   const [session, setSession] = useState(getStoredSession)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')

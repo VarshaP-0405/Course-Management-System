@@ -163,6 +163,47 @@ label {
   display: grid;
   gap: 16px;
   padding: 24px;
+  color: #f8fafc;
+}
+
+.chat-card p,
+.chat-card label,
+.chat-card strong,
+.chat-message,
+.chat-message p {
+  color: #f8fafc;
+}
+
+.chat-card .chat-connection,
+.chat-card .chat-user-id {
+  margin: 0;
+}
+
+.chat-card .chat-connection.online strong {
+  color: #86efac;
+}
+
+.chat-card .chat-connection.offline strong {
+  color: #fca5a5;
+}
+
+.chat-card input,
+.chat-card textarea {
+  color: #f8fafc;
+  background-color: rgba(5, 15, 30, 0.72);
+}
+
+.chat-card input::placeholder,
+.chat-card textarea::placeholder {
+  color: #cbd5e1;
+}
+
+.chat-card .empty-state {
+  color: #e2e8f0;
+}
+
+.chat-card .chat-message time {
+  color: #cbd5e1;
 }
 
 .chat-form {

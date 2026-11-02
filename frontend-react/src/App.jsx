@@ -1101,6 +1101,7 @@ function AddFacultyPage() {
   const isAdmin = session?.role === '1'
   const [form, setForm] = useState({ first_name: '', last_name: '', email: '', password: '', phone: '', department: '', qualification: '', specialization: '', employee_id: '' })
   const [message, setMessage] = useState('')
+  const [facultyId, setFacultyId] = useState('')
 
   const handleChange = (event) => {
     const { name, value } = event.target
@@ -1110,12 +1111,13 @@ function AddFacultyPage() {
   const handleSubmit = async (event) => {
     event.preventDefault()
     setMessage('')
+    setFacultyId('')
     try {
       const user = await request('users', {
         method: 'POST',
         body: JSON.stringify({ email: form.email, password: form.password, role: 2 }),
       })
-      await request('faculty', {
+      const faculty = await request('faculty', {
         method: 'POST',
         body: JSON.stringify({
           first_name: form.first_name,
@@ -1130,6 +1132,7 @@ function AddFacultyPage() {
         }),
       })
       await refresh()
+      setFacultyId(faculty.id)
       setMessage('Faculty account created successfully.')
       setForm({ first_name: '', last_name: '', email: '', password: '', phone: '', department: '', qualification: '', specialization: '', employee_id: '' })
     } catch (error) {
@@ -1155,6 +1158,10 @@ function AddFacultyPage() {
           <label>
             Last name
             <input name="last_name" value={form.last_name} onChange={handleChange} type="text" placeholder="Last name" required />
+          </label>
+          <label>
+            Faculty ID
+            <input value={facultyId} placeholder="Assigned automatically after saving" readOnly />
           </label>
           <label>
             Email

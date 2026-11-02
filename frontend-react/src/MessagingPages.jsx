@@ -18,6 +18,13 @@ function PageShell({ title, subtitle, children }) {
   )
 }
 
+function getSocketErrorMessage(error) {
+  if (['xhr poll error', 'websocket error'].includes(error.message)) {
+    return 'Realtime messaging could not connect. Check that this Vercel domain is allowed in the backend CORS_ORIGIN setting.'
+  }
+  return error.message
+}
+
 export function MessagesPage() {
   const { session } = useApp()
   const [recipientId, setRecipientId] = useState('')
@@ -46,7 +53,7 @@ export function MessagesPage() {
     socket.on('disconnect', () => setConnected(false))
     socket.on('connect_error', (connectError) => {
       setConnected(false)
-      setError(connectError.message)
+      setError(getSocketErrorMessage(connectError))
     })
     socket.on('receive_message', (incoming) => {
       const peerId = activeRecipientRef.current
@@ -120,8 +127,10 @@ export function MessagesPage() {
   return (
     <PageShell title="Messages" subtitle="Send direct messages to another CourseHub account.">
       <section className="chat-card">
-        <p role="status">Connection: {connected ? 'Online' : 'Offline'}</p>
-        <p>Your user ID: <strong>{session?.userId}</strong></p>
+        <p className={`chat-connection ${connected ? 'online' : 'offline'}`} role="status">
+          Realtime connection: <strong>{connected ? 'Online' : 'Offline'}</strong>
+        </p>
+        <p className="chat-user-id">Your user ID: <strong>{session?.userId}</strong></p>
         <form className="chat-form" onSubmit={loadHistory}>
           <label>
             Recipient user ID

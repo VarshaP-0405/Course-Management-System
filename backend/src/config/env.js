@@ -17,6 +17,8 @@ export const config = {
   corsOrigins,
   databaseProvider: process.env.DATABASE_PROVIDER || 'file',
   mongoUri: process.env.MONGO_URI || '',
+  adminEmail: process.env.ADMIN_EMAIL || 'courseadmin123@gmail.com',
+  adminPassword: process.env.ADMIN_PASSWORD || '',
   dataFile: resolve(process.cwd(), process.env.DATA_FILE || '../mockapi/db.json'),
   jwtSecret: process.env.JWT_SECRET || '',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '1h',

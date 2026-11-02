@@ -208,7 +208,7 @@ npm run build
 
 The backend supports `DATABASE_PROVIDER=mongodb` with `MONGO_URI`, JWT configuration, a hosting-platform `PORT`, origin-restricted CORS, and one HTTP server shared by Express and Socket.IO. A Render Blueprint is provided in `render.yaml`; the frontend includes a Vercel SPA fallback in `frontend-react/vercel.json`.
 
-For a hosted setup, provision MongoDB Atlas, configure a Render web service from `backend/`, and deploy `frontend-react/` to Vercel. Set `DATABASE_PROVIDER=mongodb`, `MONGO_URI`, `JWT_SECRET`, `JWT_EXPIRES_IN`, and `CORS_ORIGIN` on the backend. Set `VITE_API_URL` to the backend origin and `VITE_SOCKET_URL` to the same backend origin on the frontend. Never expose backend secrets to Vite. Replace demo accounts before public use.
+For a hosted setup, provision MongoDB Atlas, configure a Render web service from `backend/`, and deploy `frontend-react/` to Vercel. Set `DATABASE_PROVIDER=mongodb`, `MONGO_URI`, `JWT_SECRET`, `JWT_EXPIRES_IN`, and `CORS_ORIGIN` on the backend. Set `ADMIN_EMAIL` (defaults to `courseadmin123@gmail.com`) and a private, randomly generated `ADMIN_PASSWORD` of at least 16 characters on Render to provision the admin account on startup. It is created only if absent; existing account passwords are not reset. Set `VITE_API_URL` to the backend origin and `VITE_SOCKET_URL` to the same backend origin on the frontend. Never expose backend secrets to Vite. Replace demo accounts before public use.
 
 No live deployment URLs are listed because the hosting accounts, production database, and deployment credentials have not been provided. Follow [backend/README.md](backend/README.md) for the exact API, security, and deployment configuration.
 

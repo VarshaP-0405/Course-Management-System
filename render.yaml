@@ -20,5 +20,9 @@ services:
         value: 1h
       - key: MONGO_URI
         sync: false
+      - key: ADMIN_EMAIL
+        value: courseadmin123@gmail.com
+      - key: ADMIN_PASSWORD
+        sync: false
       - key: CORS_ORIGIN
         sync: false

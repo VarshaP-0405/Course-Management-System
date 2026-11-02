@@ -3,6 +3,7 @@ import app from './app.js'
 import { config } from './config/env.js'
 import { connectDatabase } from './services/mongoDatabaseService.js'
 import { initializeSocket } from './services/socketService.js'
+import { ensureAdminAccount } from './services/adminBootstrapService.js'
 
 if (config.databaseProvider !== 'mongodb' && config.databaseProvider !== 'file') {
   throw new Error('DATABASE_PROVIDER must be either "mongodb" or "file".')
@@ -12,6 +13,16 @@ if (config.databaseProvider === 'mongodb') {
   await connectDatabase(config.mongoUri)
 } else {
   console.warn('Using the JSON file database. Set DATABASE_PROVIDER=mongodb for persistent MongoDB storage.')
+}
+
+if (config.adminPassword) {
+  const created = await ensureAdminAccount({
+    email: config.adminEmail,
+    password: config.adminPassword,
+  })
+  console.info(created ? `Provisioned admin account ${config.adminEmail}.` : `Admin account ${config.adminEmail} already exists.`)
+} else {
+  console.warn('ADMIN_PASSWORD is not configured; no bootstrap admin account was provisioned.')
 }
 
 const server = createServer(app)

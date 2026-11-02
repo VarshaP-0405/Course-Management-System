@@ -24,6 +24,8 @@ npm start
 
 The service listens on `http://localhost:3002` by default. The backend refuses to start without a sufficiently long secret. `.env` is local-only and ignored by Git. `DATABASE_PROVIDER=file` is the default; set `DATABASE_PROVIDER=mongodb` and `MONGO_URI` to use MongoDB. `JWT_EXPIRES_IN` defaults to `1h`; `PORT`, `HOST`, `CORS_ORIGIN`, and `DATA_FILE` can also be customized.
 
+To provision an administrator at startup, set `ADMIN_EMAIL` (defaults to `courseadmin123@gmail.com`) and `ADMIN_PASSWORD` in the backend environment. The password must be at least 16 characters. The account is created only if that email is absent; startup never resets an existing account's password. If that email already belongs to a non-admin account, startup fails instead of changing its role. Set `ADMIN_PASSWORD` in Render's private environment settings and use a unique, randomly generated password; never commit it or use the requested example password on a public deployment.
+
 See [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md) for collection fields, constraints, relationships, and the ER diagram.
 
 ## Routes
@@ -93,7 +95,7 @@ The frontend logout action removes the stored token and session. JWTs are statel
 
 ## Deployment configuration
 
-The backend is ready to run behind a hosting platform that supplies `PORT`. Configure `NODE_ENV=production`, a randomly generated `JWT_SECRET`, `DATABASE_PROVIDER=mongodb`, `MONGO_URI`, and `CORS_ORIGIN` as the deployed frontend origin. The production app trusts one reverse-proxy hop for correct client IP handling. Keep database network access restricted to the hosting environment where possible. Do not put database credentials or JWT secrets in frontend variables.
+The backend is ready to run behind a hosting platform that supplies `PORT`. Configure `NODE_ENV=production`, a randomly generated `JWT_SECRET`, `DATABASE_PROVIDER=mongodb`, `MONGO_URI`, and `CORS_ORIGIN` as the deployed frontend origin. Set `ADMIN_EMAIL` (default `courseadmin123@gmail.com`) and a unique, randomly generated `ADMIN_PASSWORD` of at least 16 characters in Render to provision the administrator account at startup. Existing admin passwords are not overwritten on later restarts. The production app trusts one reverse-proxy hop for correct client IP handling. Keep database network access restricted to the hosting environment where possible. Do not put database credentials or JWT secrets in frontend variables.
 
 The Render Blueprint is in `render.yaml`; provide its `MONGO_URI` and frontend `CORS_ORIGIN` values when creating the service. The Vercel SPA fallback is in `frontend-react/vercel.json`. Set `VITE_API_URL` to the backend origin (or its `/api/v1` prefix) and `VITE_SOCKET_URL` to the backend origin before building the frontend. The application has not been deployed to hosting services; production URLs and credentials must be supplied by the repository owner.
 

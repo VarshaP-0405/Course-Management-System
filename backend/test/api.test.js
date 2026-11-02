@@ -27,8 +27,19 @@ before(async () => {
   process.env.DATA_FILE = dataFile
   process.env.JWT_SECRET = 'test-jwt-secret-for-course-management-1234567890'
   process.env.CORS_ORIGIN = 'https://course-management-system-o7t4.vercel.app'
+  process.env.ADMIN_EMAIL = 'bootstrap-admin@example.test'
+  process.env.ADMIN_PASSWORD = 'StrongTestAdminPassword123!'
 
   const { default: app } = await import('../src/app.js')
+  const { ensureAdminAccount } = await import('../src/services/adminBootstrapService.js')
+  assert.equal(await ensureAdminAccount({
+    email: process.env.ADMIN_EMAIL,
+    password: process.env.ADMIN_PASSWORD,
+  }), true)
+  assert.equal(await ensureAdminAccount({
+    email: process.env.ADMIN_EMAIL,
+    password: 'AnotherStrongTestPassword456!',
+  }), false)
   server = createServer(app)
   server.listen(0, '127.0.0.1')
   await once(server, 'listening')
@@ -69,6 +80,19 @@ async function request(path, { body, token = adminToken, ...options } = {}) {
 }
 
 test('student, course, authentication, and page collection endpoints', async (t) => {
+  await t.test('logs into the bootstrapped admin account without resetting its password', async () => {
+    const response = await request('/api/auth/login', {
+      method: 'POST',
+      body: {
+        email: process.env.ADMIN_EMAIL,
+        password: process.env.ADMIN_PASSWORD,
+        role: 1,
+      },
+    })
+    assert.equal(response.status, 200)
+    assert.equal(response.data.email, process.env.ADMIN_EMAIL)
+  })
+
   await t.test('serves JSON for all page collections and keeps legacy routes compatible', async () => {
     const securityHeaders = await fetch(`${baseUrl}/api/health`)
     assert.equal(securityHeaders.headers.get('x-content-type-options'), 'nosniff')

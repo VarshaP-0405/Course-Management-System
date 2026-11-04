@@ -211,6 +211,29 @@ The backend supports `DATABASE_PROVIDER=mongodb` with `MONGO_URI`, JWT configura
 For a hosted setup, provision MongoDB Atlas, configure a Render web service from `backend/`, and deploy `frontend-react/` to Vercel. Set `DATABASE_PROVIDER=mongodb`, `MONGO_URI`, `JWT_SECRET`, `JWT_EXPIRES_IN`, and `CORS_ORIGIN` on the backend. Set `ADMIN_EMAIL` (defaults to `courseadmin123@gmail.com`) and a private, randomly generated `ADMIN_PASSWORD` of at least 16 characters on Render to provision the admin account on startup. It is created only if absent; existing account passwords are not reset. Set `VITE_API_URL` to the backend origin and `VITE_SOCKET_URL` to the same backend origin on the frontend. Never expose backend secrets to Vite. Replace demo accounts before public use.
 
 No live deployment URLs are listed because the hosting accounts, production database, and deployment credentials have not been provided. Follow [backend/README.md](backend/README.md) for the exact API, security, and deployment configuration.
+## Limitations
+1. Limited Scalability: The application may face performance challenges when the number of students, faculty members, courses, and enrollments increases significantly.
 
+2. Basic Learning Assessment: The system tracks completed lessons and course progress but does not currently provide a complete examination and automated assessment system.
+
+3. No Live Classroom: Students can watch lesson videos, but live interactive classes and video conferencing are not currently integrated.
+
+4. Limited AI Integration: Course recommendations and learning assistance are not yet powered by artificial intelligence.
+
+5. Basic Communication Features: The application supports real-time one-to-one messaging, but group discussions, voice calls, and video calls are not available.
+## Future Improvements
+1. AI-Based Course Recommendations: Integrate AI and machine learning to recommend courses based on students' interests, skills, and learning history.
+
+2. Advanced Analytics Dashboard: Add detailed reports, visual charts, and performance analysis to help faculty and administrators monitor student progress.
+
+3. Online Assessment System: Introduce quizzes, assignments, automated evaluation, and examination management.
+
+4. Live Learning Integration: Add live classes, video conferencing, screen sharing, and interactive classroom sessions.
+
+5. AI Learning Assistant: Integrate an AI chatbot to answer students' questions, explain concepts, and provide personalized learning assistance.
+
+6. Enhanced Communication: Introduce group chats, discussion forums, voice calls, and video communication.
+
+7. Secure Certificate Verification: Generate certificates with unique QR codes to verify their authenticity online.
 ## License
 This project is intended for educational and academic use.
